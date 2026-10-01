@@ -1,5 +1,10 @@
 # Troubleshooting
 
+> Availability: microphone support, double-clap activation, and cursor
+> calibration are being built and are not available for use yet. The legacy
+> guidance below describes the in-progress implementation, not a supported
+> current-release feature.
+
 ## Quick diagnostic flow
 
 ```mermaid

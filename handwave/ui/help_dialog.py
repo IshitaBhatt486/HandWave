@@ -11,9 +11,8 @@ class HelpDialog(QDialog):
     CARDS = (
         ("1. Start recognition", "Select Enable Recognition. The button changes to Disable Recognition when the camera is live."),
         ("2. Use gestures", "Hold a static gesture briefly. Point up, down, left, or right; swipe in the same directions for motion controls."),
-        ("3. Double clap", "Clap twice about 0.12–1 second apart to toggle recognition. Use Microphone Test to check input and calibrate in a quiet room."),
-        ("4. Customize actions", "Open Settings > Gestures & Actions to enable gestures and choose media keys, hotkeys, mouse actions, or text."),
-        ("5. Background and exit", "Closing normally keeps HandWave in the tray. Enable Settings > General > Exit HandWave when I close the window to fully terminate it."),
+        ("3. Customize actions", "Open Settings > Gestures & Actions to enable gestures and choose media keys, hotkeys, mouse actions, or text."),
+        ("4. Background and exit", "Closing normally keeps HandWave in the tray. Enable Settings > General > Exit HandWave when I close the window to fully terminate it."),
     )
 
     def __init__(self, parent=None) -> None:

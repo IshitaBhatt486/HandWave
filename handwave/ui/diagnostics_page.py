@@ -16,11 +16,6 @@ class DiagnosticsPage(QWidget):
         ("cpu", "CPU", "0.0%", "process utilization"),
         ("memory", "Memory", "0.0 MB", "working set"),
         ("threads", "Active threads", "0", "pipeline workers"),
-        ("microphone", "Microphone", "Not started", "selected input device"),
-        ("mic_stream", "Mic stream", "stopped", "capture health"),
-        ("mic_rms", "Mic RMS", "0.00000", "current input level"),
-        ("mic_peak", "Mic peak", "0.00000", "current input peak"),
-        ("last_clap", "Last clap", "Never", "monotonic timestamp"),
         ("cursor_overlay", "Cursor overlay", "Idle", "visual-assist state"),
         ("overlay_fps", "Overlay FPS", "0.0", "overlay renders / second"),
         ("overlay_cpu", "Overlay CPU", "0.000%", "paint-time CPU estimate"),
@@ -102,13 +97,7 @@ class DiagnosticsPage(QWidget):
         self.gesture_detail.setText(f"Raw  {raw}   •   Stable  {stable}")
 
     def update_microphone(self, status: object) -> None:
-        """Render scalar microphone health data only; audio is never retained."""
-        self._values["microphone"].setText(getattr(status, "device", None) or "Windows default")
-        self._values["mic_stream"].setText(getattr(status, "stream_status", "unknown"))
-        self._values["mic_rms"].setText(f"{getattr(status, 'rms', 0.0):.5f}")
-        self._values["mic_peak"].setText(f"{getattr(status, 'input_level', 0.0):.5f}")
-        last_clap = getattr(status, "last_clap_time", None)
-        self._values["last_clap"].setText("Never" if last_clap is None else f"{last_clap:.3f}")
+        """Retain the diagnostics hook without exposing microphone/clap controls."""
 
     def update_cursor_overlay(self, state: object, metrics: object) -> None:
         """Show overlay-local measurements; no pipeline worker is sampled here."""

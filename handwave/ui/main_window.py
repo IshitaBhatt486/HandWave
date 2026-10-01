@@ -197,7 +197,9 @@ class MainWindow(QMainWindow):
         self.microphone_status = QLabel("●  MICROPHONE STANDBY")
         self.profile_status = QLabel("Active profile: Global")
         self.profile_status.setAccessibleName("Active application profile")
-        for indicator in (self.camera_status, self.recognition_status, self.microphone_status, self.profile_status):
+        # Microphone double-clap remains available internally, but its status is
+        # intentionally not surfaced in the dashboard.
+        for indicator in (self.camera_status, self.recognition_status, self.profile_status):
             indicator.setObjectName("systemIndicator")
             system_status_layout.addWidget(indicator)
         system_status_layout.addStretch()
@@ -235,13 +237,15 @@ class MainWindow(QMainWindow):
         self.custom_gestures_button = QPushButton("Custom Gestures")
         self.microphone_button = QPushButton("Microphone Test")
         self.cursor_calibration_button = QPushButton("Cursor Calibration")
+        # Keep the existing calibration workflow available to code, but do not
+        # present this unfinished feature in the dashboard yet.
+        self.cursor_calibration_button.setVisible(False)
         self.settings_button.setAccessibleDescription("Open gesture bindings and sensitivity settings")
         controls = QHBoxLayout()
         controls.addWidget(self.start_button)
         controls.addWidget(self.settings_button)
         controls.addWidget(self.templates_button)
         controls.addWidget(self.custom_gestures_button)
-        controls.addWidget(self.microphone_button)
         controls.addWidget(self.cursor_calibration_button)
         controls.addStretch()
 

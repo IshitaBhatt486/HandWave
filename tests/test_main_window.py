@@ -54,6 +54,16 @@ def test_dashboard_starts_in_dark_mode_and_exposes_the_help_guide(qtbot):
     assert window.help_button.accessibleName() == "Help and user guide"
 
 
+def test_dashboard_hides_cursor_calibration_without_removing_its_workflow(qtbot):
+    window = MainWindow(camera_manager=FakeCamera())
+    qtbot.addWidget(window)
+
+    assert window.cursor_calibration_button.isHidden()
+    assert window.cursor_calibration_button.receivers(
+        window.cursor_calibration_button.clicked
+    ) == 1
+
+
 def test_recognition_button_toggles_start_stop_and_close_to_tray(qtbot):
     camera = FakeCamera()
     window = MainWindow(camera_manager=camera)

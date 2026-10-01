@@ -1,7 +1,6 @@
 # HandWave
 
-A local Windows touchless open source tool that turns hand gestures and other
-motion controls into configurable actions.
+A local Windows open source tool to add gesture control to your device.
 
 ![HandWave dark dashboard](docs/images/dashboard-dark.png)
 
@@ -9,8 +8,10 @@ motion controls into configurable actions.
 
 HandWave watches your webcam for hand poses, swipes, pinches, and two-hand
 gestures, and maps each one to a configurable action (a media key, a
-keyboard shortcut, a mouse click, typed text, or a local program launch). A
-double clap can enable or pause recognition without touching the keyboard.
+keyboard shortcut, a mouse click, typed text, or a local program launch).
+
+> Availability: microphone support, double-clap activation, and cursor
+> calibration are currently being built and are not available for use yet.
 
 > Note: Everything runs on your machine, nothing is uploaded anywhere.
 
@@ -33,8 +34,7 @@ double clap can enable or pause recognition without touching the keyboard.
 - Non-blocking capture, recognition, and action worker threads; a
   capacity-one latest-frame buffer prevents latency buildup under load.
 - Live confidence, performance diagnostics, activity history, and status indicators.
-- System-tray operation, double-clap activation (with ambient-noise
-  calibration), and optional Windows startup.
+- System-tray operation and optional Windows startup.
 - A landmark record/replay tool for deterministic, camera-free testing.
 - PyInstaller portable build and NSIS installer.
 - An 80%-coverage test gate across unit, integration, UI, and benchmark tests.
@@ -53,7 +53,6 @@ double clap can enable or pause recognition without touching the keyboard.
 | Hand swipe up/down | Show all windows / collapse overview |
 | Pinch and move vertically | Adjust volume |
 | Both palms open, moving apart/together | Two-hand gesture (configurable) |
-| Double clap | Enable or pause recognition |
 
 Every gesture's action can be changed to a key, hotkey, mouse action, typed
 text, or program launch from Settings → Gestures & Actions
@@ -104,8 +103,8 @@ overload, not data loss.
 
 ## Privacy
 
-- Camera frames and microphone samples are processed locally; neither is
-  ever uploaded or recorded to disk by default.
+- Camera frames are processed locally and are never uploaded or recorded to
+  disk by default.
 - No networking, telemetry, accounts, or cloud dependencies.
 - Custom-gesture recording stores normalized landmark-derived features and
   metadata, never video (see [docs/gesture-recognition.md](docs/gesture-recognition.md)).
@@ -117,7 +116,6 @@ overload, not data loss.
 - Windows 10 or 11
 - Python 3.11
 - A webcam
-- A microphone (for optional double-clap activation/deactivation)
 
 ## Quick Start
 
@@ -128,7 +126,7 @@ overload, not data loss.
 
 `setup.cmd` verifies Python 3.11, creates `.venv` if needed, and installs
 `handwave\requirements.txt`. `run.cmd` starts HandWave from that environment.
->Allow desktop applications to access the camera and microphone when Windows asks.
+> Allow desktop applications to access the camera when Windows asks.
 
 ## Development
 
@@ -160,6 +158,8 @@ SHA-256 checksums.
   and two-hand custom gestures are not yet implemented
 - Two-hand tracking can occasionally swap which hand is "primary" for a
   single frame when hands cross rapidly; this is a display flicker, not a crash.
+- Microphone support, double-clap activation, and cursor calibration are under
+  construction and unavailable in the current release.
 
 ## Documentation
 

@@ -1,7 +1,7 @@
 # HandWave V2 manual release checklist
 
 Run this checklist on the intended Windows release device using the packaged
-application. Record the device model, camera, microphone, display scale, and
+application. Record the device model, camera, display scale, and
 observed camera/recognition FPS before approving a release.
 
 ## Installation and startup
@@ -11,7 +11,6 @@ observed camera/recognition FPS before approving a release.
 - [ ] Confirm the startup preference and local settings survive an upgrade/uninstall-reinstall cycle as intended.
 - [ ] Pause/resume the computer; verify recognition can be enabled after resume.
 - [ ] Disconnect/reconnect the camera while recognition is active; confirm an error is shown and retry succeeds.
-- [ ] Disconnect/reconnect the microphone; confirm status is useful and microphone retry succeeds.
 
 ## Camera, gestures, and interaction
 
@@ -34,7 +33,9 @@ observed camera/recognition FPS before approving a release.
 - [ ] Create, edit, save, duplicate, switch, export, import, and delete templates; verify edits do not change the source template.
 - [ ] Confirm separate template mappings for the same gesture take effect after switching templates.
 - [ ] Test foreground application profile detection, explicit-profile fallback, and no-match fallback to resolved global/template settings.
-- [ ] Calibrate the microphone in a quiet room. Test low/normal/high double claps, single claps, speech, keyboard sounds, music, and continuous noise.
+- [ ] When microphone support, double-clap activation, and cursor calibration
+  are released, add their end-to-end checks to this checklist. They are not
+  available for testing yet.
 
 ## Packaging
 

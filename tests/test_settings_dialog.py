@@ -50,7 +50,7 @@ def test_dialog_is_organized_into_sections(qtbot):
 
     tabs = dialog.findChild(QTabWidget)
     labels = [tabs.tabText(index) for index in range(tabs.count())]
-    assert labels == ["General", "Camera", "Microphone", "Cursor Control", "Gestures && Actions", "Appearance"]
+    assert labels == ["General", "Camera", "Cursor Control", "Gestures && Actions", "Appearance"]
 
 
 def test_dialog_persists_show_cursor_overlay_toggle(qtbot):

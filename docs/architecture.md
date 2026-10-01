@@ -15,15 +15,12 @@ there is no network service, account system, or database.
 flowchart LR
     User([User])
     Camera[(Webcam)]
-    Mic[(Microphone)]
     Windows[(Windows: media keys, keyboard/mouse, foreground window)]
     Files[(Local JSON settings/profiles/gestures)]
     App[HandWave]
 
     User -->|poses, swipes, pinch, two-hand| Camera
-    User -->|double clap| Mic
     Camera --> App
-    Mic --> App
     App -->|configured actions| Windows
     Windows -->|foreground app| App
     User <-->|dashboard, tray, settings| App
@@ -40,7 +37,6 @@ flowchart TB
     Window --> Pages[Dashboard / DiagnosticsPage]
     Window --> Dialogs[Onboarding / SettingsDialog]
     Window --> Tray[System tray]
-    Window --> Clap[ClapDetector]
     Window --> Manager[CameraManager]
     Window --> Switcher[ProfileSwitcher]
     Window --> History[ActionHistory]
@@ -136,3 +132,5 @@ file is corrupted JSON.
 - Custom gestures currently support static poses only (see
   [gesture-recognition.md](gesture-recognition.md) for what's structurally
   ready but not yet implemented: motion and two-hand custom gestures).
+- Microphone support, double-clap activation, and cursor calibration are
+  under construction and unavailable to users.

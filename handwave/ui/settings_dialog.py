@@ -194,7 +194,9 @@ class SettingsDialog(QDialog):
         tabs = QTabWidget()
         tabs.addTab(self._build_general_tab(settings), "General")
         tabs.addTab(self._build_camera_tab(settings), "Camera")
-        tabs.addTab(self._build_microphone_tab(settings), "Microphone")
+        # Build these controls so existing microphone/double-clap settings are
+        # preserved when this dialog is saved, but do not display the feature.
+        self._microphone_settings_widget = self._build_microphone_tab(settings)
         tabs.addTab(self._build_cursor_control_tab(settings), "Cursor Control")
         tabs.addTab(self._build_gestures_tab(settings), "Gestures && Actions")
         tabs.addTab(self._build_appearance_tab(settings), "Appearance")

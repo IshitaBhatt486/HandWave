@@ -66,7 +66,10 @@ def main() -> int:
         window.clap_detector.start()
         _startup_timer.mark("microphone init requested")
         window.show()
-        _startup_timer.mark("UI visible (mediapipe/camera not yet touched)")
+        # Recognition is enabled by default; schedule it after the event loop
+        # begins so the dashboard can render immediately.
+        QTimer.singleShot(0, window.start_camera)
+        _startup_timer.mark("UI visible; recognition start requested")
         QTimer.singleShot(0, window.show_onboarding_if_needed)
         if _startup_timer.enabled:
             logger.info("%s", _startup_timer.report())

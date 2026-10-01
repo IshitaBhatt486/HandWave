@@ -21,7 +21,7 @@ class OnboardingDialog(QDialog):
     PAGES = (
         ("Welcome to HandWave", "Control media naturally with hand gestures and motion—without touching your keyboard."),
         ("Fast, reliable recognition", "Hold a gesture briefly until it becomes stable. Pinch vertically for volume, or swipe for tracks."),
-        ("Always within reach", "Close the window to keep recognition in the system tray. Double-clap to enable or pause it."),
+        ("Always within reach", "Close the window to keep recognition available in the system tray."),
     )
 
     def __init__(self, parent=None) -> None:

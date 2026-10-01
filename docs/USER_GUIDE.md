@@ -3,12 +3,11 @@
 ## 1. Getting started
 
 Install HandWave with `HandWave-1.0.0-rc.1-Setup.exe`, then launch it from the desktop
-or Start Menu. On first launch, a short walkthrough explains gestures, tray mode,
-and double-clap activation.
+or Start Menu. On first launch, a short walkthrough explains gestures and tray mode.
 
-Windows may ask for camera and microphone permission. Both permissions are needed
-for the complete experience() Gesture recognition can still be started manually if
-microphone access is unavailable.
+Windows may ask for camera permission. Microphone support, double-clap
+activation, and cursor calibration are currently being built and are not
+available for use yet.
 
 ## 2. Dashboard
 
@@ -109,8 +108,8 @@ The tray menu provides:
 - Launch at Windows Startup
 - Exit
 
-**Exit** stops the camera asynchronously, drains accepted actions, releases the
-microphone, removes the tray icon, and closes the application.
+**Exit** stops the camera asynchronously, drains accepted actions, removes the
+tray icon, and closes the application.
 
 ## 8. Uninstalling
 
