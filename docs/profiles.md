@@ -28,7 +28,7 @@ never share a mutable `gesture_bindings`/`enabled_gestures` reference.
 
 `ProfileManager` (`handwave/config/profile_manager.py`) persists the profile
 list plus an `active_profile_id` (explicit selection) to
-`profiles.json`, with the same schema-version/atomic-write/backup-recovery
+`profiles.json` in the per-user config folder, with the same schema-version/atomic-write/backup-recovery
 pattern as `SettingsManager` (see [architecture.md](architecture.md)). CRUD:
 `create_profile`, `update_profile`, `duplicate_profile`,
 `copy_settings_from(target, source)`, `reset_overrides`, `delete_profile`,
@@ -42,6 +42,19 @@ collisions).
 image name and title via `ctypes` (`user32`/`kernel32`) — never a window
 title alone, since titles change constantly.
 `handwave/services/app_matcher.py::select_profile` matches deterministically:
+
+```mermaid
+flowchart TD
+    F[Foreground app<br/>e.g. spotify.exe + window title] --> A{Auto-switch on?}
+    A -->|no| E
+    A -->|yes| B{Enabled profile with matching<br/>executable and title pattern?}
+    B -->|yes| W[that profile<br/>window_title_match]
+    B -->|no| C{Enabled profile with<br/>matching executable?}
+    C -->|yes| X[that profile<br/>executable_match]
+    C -->|no| E{Profile selected by hand?}
+    E -->|yes| S[selected profile<br/>explicit_selection]
+    E -->|no| G[Global settings<br/>global_fallback]
+```
 
 1. explicitly disabled profiles are never selected
 2. an executable match with a matching window-title pattern (most specific)
@@ -64,9 +77,9 @@ foreground app, active profile, and match reason
 (`executable_match` / `window_title_match` / `explicit_selection` /
 `auto_switch_disabled` / `global_fallback`).
 
-## What's not built yet
+## Not built yet
 
-There is no Application Profile *editor* UI (create/edit/duplicate/import/
-export from the dashboard) — today that's a Python API
-(`ProfileManager`/`Profile`). The backend above is complete and tested; the
-editor panel described in the original UI spec is deferred follow-on work.
+There's no editor for profiles in the app. Everything above works and is
+tested, but creating a profile currently means using `ProfileManager` from
+Python or editing `profiles.json` in the config folder. An editor would be a
+welcome contribution.

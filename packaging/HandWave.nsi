@@ -5,7 +5,7 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 
 !ifndef PRODUCT_VERSION
-  !define PRODUCT_VERSION "1.0.0-rc.1"
+  !define PRODUCT_VERSION "1.1.0"
 !endif
 
 !define PRODUCT_NAME "HandWave"
@@ -31,6 +31,7 @@ ShowUninstDetails show
 !define MUI_FINISHPAGE_RUN_TEXT "Launch HandWave"
 
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -46,6 +47,8 @@ Section "HandWave" SEC_MAIN
   SetOutPath "$INSTDIR"
   SetOverwrite on
   File /oname=${PRODUCT_EXE} "..\dist\HandWave.exe"
+  File "..\LICENSE"
+  File "..\build\THIRD_PARTY_LICENSES.txt"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
@@ -74,6 +77,8 @@ Section "Uninstall"
 
   Delete "$INSTDIR\${PRODUCT_EXE}"
   Delete "$INSTDIR\Uninstall.exe"
+  Delete "$INSTDIR\LICENSE"
+  Delete "$INSTDIR\THIRD_PARTY_LICENSES.txt"
   RMDir "$INSTDIR"
 
   DeleteRegKey HKCU "${UNINSTALL_REGKEY}"

@@ -11,8 +11,9 @@ from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from handwave.ui.main_window import MainWindow
 from handwave.config.settings_manager import SettingsManager
-from handwave.services.startup_manager import WindowsStartupManager
-from handwave.startup_timing import StartupTimer
+from handwave import platforms
+from handwave.services.startup_manager import default_startup_manager
+from handwave.diagnostics.startup_timing import StartupTimer
 from handwave.version import __version__
 
 _startup_timer = StartupTimer()
@@ -57,20 +58,19 @@ def main() -> int:
         app.setApplicationVersion(__version__)
         from PyQt6.QtGui import QIcon
 
-        app.setWindowIcon(QIcon(str(resource_path("handwave/assets/handwave.ico"))))
-        settings = SettingsManager(startup_manager=WindowsStartupManager())
+        icon = "handwave/assets/handwave.png" if platforms.is_macos() else "handwave/assets/handwave.ico"
+        app.setWindowIcon(QIcon(str(resource_path(icon))))
+        settings = SettingsManager(startup_manager=default_startup_manager())
         settings.synchronize_startup()
         _startup_timer.mark("settings loaded")
         window = MainWindow(settings_manager=settings)
         _startup_timer.mark("MainWindow constructed")
-        window.clap_detector.start()
-        _startup_timer.mark("microphone init requested")
         window.show()
-        # Recognition is enabled by default; schedule it after the event loop
-        # begins so the dashboard can render immediately.
-        QTimer.singleShot(0, window.start_camera)
-        _startup_timer.mark("UI visible; recognition start requested")
-        QTimer.singleShot(0, window.show_onboarding_if_needed)
+        # After the event loop starts (so the dashboard renders first):
+        # first-run setup, then microphone, auto-pause and — if enabled in
+        # settings — the camera.
+        QTimer.singleShot(0, window.launch)
+        _startup_timer.mark("UI visible; launch sequence scheduled")
         if _startup_timer.enabled:
             logger.info("%s", _startup_timer.report())
         logger.info("HandWave started")

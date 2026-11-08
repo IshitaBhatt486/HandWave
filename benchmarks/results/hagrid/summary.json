@@ -1,0 +1,358 @@
+{
+  "meta": {
+    "dataset": "HaGRID sample 30k (384p)",
+    "images_evaluated": 2875,
+    "per_class": 250,
+    "synthetic_per_class": 80,
+    "seed": 7,
+    "sensitivity": 0.6,
+    "model_complexity": 1,
+    "machine": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel, Windows 10, Python 3.11.9, MediaPipe 0.10.14",
+    "timestamp": "2026-11-08 20:39",
+    "wall_time_s": 354.0
+  },
+  "overall": {
+    "n": 1750,
+    "detection_rate": 87.37142857142857,
+    "accuracy": 81.2,
+    "accuracy_when_detected": 92.93655984303466
+  },
+  "per_gesture": {
+    "Open Palm": {
+      "n": 500,
+      "detection_rate": 92.0,
+      "accuracy": 89.4,
+      "accuracy_when_detected": 97.17391304347827
+    },
+    "Fist": {
+      "n": 250,
+      "detection_rate": 86.4,
+      "accuracy": 72.4,
+      "accuracy_when_detected": 83.79629629629629
+    },
+    "Thumbs Up": {
+      "n": 250,
+      "detection_rate": 83.2,
+      "accuracy": 77.6,
+      "accuracy_when_detected": 93.26923076923077
+    },
+    "Thumbs Down": {
+      "n": 250,
+      "detection_rate": 80.8,
+      "accuracy": 74.8,
+      "accuracy_when_detected": 92.57425742574257
+    },
+    "Peace Sign": {
+      "n": 250,
+      "detection_rate": 90.0,
+      "accuracy": 84.4,
+      "accuracy_when_detected": 93.77777777777777
+    },
+    "Pointing": {
+      "n": 250,
+      "detection_rate": 87.2,
+      "accuracy": 80.4,
+      "accuracy_when_detected": 92.20183486238533
+    }
+  },
+  "per_hagrid_class": {
+    "palm": {
+      "n": 250,
+      "detection_rate": 91.6,
+      "accuracy": 91.6,
+      "accuracy_when_detected": 100.0
+    },
+    "stop": {
+      "n": 250,
+      "detection_rate": 92.4,
+      "accuracy": 87.2,
+      "accuracy_when_detected": 94.37229437229438
+    },
+    "fist": {
+      "n": 250,
+      "detection_rate": 86.4,
+      "accuracy": 72.4,
+      "accuracy_when_detected": 83.79629629629629
+    },
+    "like": {
+      "n": 250,
+      "detection_rate": 83.2,
+      "accuracy": 77.6,
+      "accuracy_when_detected": 93.26923076923077
+    },
+    "dislike": {
+      "n": 250,
+      "detection_rate": 80.8,
+      "accuracy": 74.8,
+      "accuracy_when_detected": 92.57425742574257
+    },
+    "peace": {
+      "n": 250,
+      "detection_rate": 90.0,
+      "accuracy": 84.4,
+      "accuracy_when_detected": 93.77777777777777
+    },
+    "one": {
+      "n": 250,
+      "detection_rate": 87.2,
+      "accuracy": 80.4,
+      "accuracy_when_detected": 92.20183486238533
+    }
+  },
+  "pointing_up_direction_rate": 100.0,
+  "confusion": {
+    "labels": [
+      "Open Palm",
+      "Fist",
+      "Thumbs Up",
+      "Thumbs Down",
+      "Peace Sign",
+      "Pointing",
+      "No gesture",
+      "Not detected"
+    ],
+    "rows": {
+      "Open Palm": {
+        "Open Palm": 447,
+        "Fist": 0,
+        "Thumbs Up": 0,
+        "Thumbs Down": 0,
+        "Peace Sign": 0,
+        "Pointing": 0,
+        "No gesture": 13,
+        "Not detected": 40
+      },
+      "Fist": {
+        "Open Palm": 0,
+        "Fist": 181,
+        "Thumbs Up": 35,
+        "Thumbs Down": 0,
+        "Peace Sign": 0,
+        "Pointing": 0,
+        "No gesture": 0,
+        "Not detected": 34
+      },
+      "Thumbs Up": {
+        "Open Palm": 1,
+        "Fist": 5,
+        "Thumbs Up": 194,
+        "Thumbs Down": 0,
+        "Peace Sign": 0,
+        "Pointing": 0,
+        "No gesture": 8,
+        "Not detected": 42
+      },
+      "Thumbs Down": {
+        "Open Palm": 0,
+        "Fist": 8,
+        "Thumbs Up": 1,
+        "Thumbs Down": 187,
+        "Peace Sign": 0,
+        "Pointing": 0,
+        "No gesture": 6,
+        "Not detected": 48
+      },
+      "Peace Sign": {
+        "Open Palm": 0,
+        "Fist": 0,
+        "Thumbs Up": 0,
+        "Thumbs Down": 0,
+        "Peace Sign": 211,
+        "Pointing": 1,
+        "No gesture": 13,
+        "Not detected": 25
+      },
+      "Pointing": {
+        "Open Palm": 0,
+        "Fist": 0,
+        "Thumbs Up": 0,
+        "Thumbs Down": 0,
+        "Peace Sign": 2,
+        "Pointing": 201,
+        "No gesture": 15,
+        "Not detected": 32
+      }
+    }
+  },
+  "false_triggers": {
+    "call": {
+      "n": 125,
+      "false_trigger_rate": 4.0,
+      "triggered_as": {
+        "Thumbs Up": 5
+      }
+    },
+    "four": {
+      "n": 125,
+      "false_trigger_rate": 14.4,
+      "triggered_as": {
+        "Open Palm": 18
+      }
+    },
+    "mute": {
+      "n": 125,
+      "false_trigger_rate": 14.4,
+      "triggered_as": {
+        "Pointing": 17,
+        "Thumbs Up": 1
+      }
+    },
+    "ok": {
+      "n": 125,
+      "false_trigger_rate": 8.0,
+      "triggered_as": {
+        "Open Palm": 10
+      }
+    },
+    "rock": {
+      "n": 125,
+      "false_trigger_rate": 0.8,
+      "triggered_as": {
+        "Pointing": 1
+      }
+    },
+    "three": {
+      "n": 125,
+      "false_trigger_rate": 0.0,
+      "triggered_as": {}
+    },
+    "three2": {
+      "n": 125,
+      "false_trigger_rate": 1.6,
+      "triggered_as": {
+        "Thumbs Up": 1,
+        "Peace Sign": 1
+      }
+    },
+    "two_up": {
+      "n": 125,
+      "false_trigger_rate": 0.0,
+      "triggered_as": {}
+    },
+    "two_up_inverted": {
+      "n": 125,
+      "false_trigger_rate": 0.8,
+      "triggered_as": {
+        "Peace Sign": 1
+      }
+    }
+  },
+  "overall_false_trigger_rate": 4.888888888888889,
+  "negatives_n": 1125,
+  "by_natural_lighting": {
+    "Low light": {
+      "n": 38,
+      "detection_rate": 76.3157894736842,
+      "accuracy": 71.05263157894737,
+      "accuracy_when_detected": 93.10344827586206,
+      "median_hand_luma": 68.85161435786435
+    },
+    "Dim": {
+      "n": 308,
+      "detection_rate": 85.06493506493507,
+      "accuracy": 77.27272727272727,
+      "accuracy_when_detected": 90.83969465648855,
+      "median_hand_luma": 106.90908716467241
+    },
+    "Normal": {
+      "n": 941,
+      "detection_rate": 88.09776833156216,
+      "accuracy": 81.72157279489905,
+      "accuracy_when_detected": 92.76236429433052,
+      "median_hand_luma": 145.2740590489069
+    },
+    "Bright": {
+      "n": 322,
+      "detection_rate": 90.06211180124224,
+      "accuracy": 85.71428571428571,
+      "accuracy_when_detected": 95.17241379310344,
+      "median_hand_luma": 180.78131402647531
+    },
+    "Backlit": {
+      "n": 141,
+      "detection_rate": 84.39716312056737,
+      "accuracy": 78.72340425531915,
+      "accuracy_when_detected": 93.27731092436974,
+      "median_hand_luma": 98.93955276030748
+    }
+  },
+  "synthetic_lighting": {
+    "Original": {
+      "n": 560,
+      "detection_rate": 86.78571428571429,
+      "accuracy": 80.35714285714286,
+      "accuracy_when_detected": 92.5925925925926,
+      "per_gesture": {
+        "Open Palm": 89.375,
+        "Fist": 73.75,
+        "Thumbs Up": 73.75,
+        "Thumbs Down": 71.25,
+        "Peace Sign": 81.25,
+        "Pointing": 83.75
+      }
+    },
+    "Low light + noise": {
+      "n": 560,
+      "detection_rate": 70.89285714285714,
+      "accuracy": 64.10714285714286,
+      "accuracy_when_detected": 90.42821158690177,
+      "per_gesture": {
+        "Open Palm": 80.625,
+        "Fist": 57.5,
+        "Thumbs Up": 53.75,
+        "Thumbs Down": 47.5,
+        "Peace Sign": 68.75,
+        "Pointing": 60.0
+      }
+    },
+    "Overexposed": {
+      "n": 560,
+      "detection_rate": 42.857142857142854,
+      "accuracy": 35.535714285714285,
+      "accuracy_when_detected": 82.91666666666667,
+      "per_gesture": {
+        "Open Palm": 40.625,
+        "Fist": 36.25,
+        "Thumbs Up": 35.0,
+        "Thumbs Down": 32.5,
+        "Peace Sign": 35.0,
+        "Pointing": 28.75
+      }
+    },
+    "Warm tungsten": {
+      "n": 560,
+      "detection_rate": 82.5,
+      "accuracy": 76.96428571428571,
+      "accuracy_when_detected": 93.29004329004329,
+      "per_gesture": {
+        "Open Palm": 86.875,
+        "Fist": 67.5,
+        "Thumbs Up": 65.0,
+        "Thumbs Down": 71.25,
+        "Peace Sign": 83.75,
+        "Pointing": 77.5
+      }
+    },
+    "Harsh side light": {
+      "n": 560,
+      "detection_rate": 83.21428571428571,
+      "accuracy": 76.96428571428571,
+      "accuracy_when_detected": 92.4892703862661,
+      "per_gesture": {
+        "Open Palm": 87.5,
+        "Fist": 67.5,
+        "Thumbs Up": 68.75,
+        "Thumbs Down": 68.75,
+        "Peace Sign": 82.5,
+        "Pointing": 76.25
+      }
+    }
+  },
+  "latency_ms": {
+    "n": 2875,
+    "mean": 59.39740250480321,
+    "p50": 49.019900034181774,
+    "p95": 112.75205998681473,
+    "max": 378.3419000101276
+  }
+}

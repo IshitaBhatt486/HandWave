@@ -1,0 +1,84 @@
+name: Release
+
+# Push a tag such as v1.1.0 to build HandWave and publish it as a GitHub release.
+# The README download links point at the files attached here.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Check the tag matches the app version
+        shell: bash
+        run: |
+          version=$(python -c "from handwave.version import __version__; print(__version__)")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1; }
+      - run: python -m pytest -q
+      - run: python -m PyInstaller --noconfirm --clean packaging/HandWave.spec
+      # Code signing through the SignPath Foundation (see docs/releasing.md).
+      # Skipped, leaving the exe unsigned, until the SignPath variables are set.
+      - name: Upload unsigned exe for signing
+        id: unsigned
+        if: vars.SIGNPATH_PROJECT_SLUG != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: HandWave-unsigned
+          path: dist/HandWave.exe
+      - name: Sign with SignPath
+        if: vars.SIGNPATH_PROJECT_SLUG != ''
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed
+      - name: Use the signed exe
+        if: vars.SIGNPATH_PROJECT_SLUG != ''
+        shell: pwsh
+        run: Move-Item -Force dist/signed/HandWave.exe dist/HandWave.exe
+      - name: Checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 dist/HandWave.exe).Hash.ToLowerInvariant()
+          "$hash  HandWave.exe" | Set-Content -Encoding ascii dist/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            dist/HandWave.exe
+            dist/SHA256SUMS.txt
+            build/THIRD_PARTY_LICENSES.txt
+
+  macos:
+    # Experimental: a failed macOS build never blocks the Windows release.
+    runs-on: macos-latest
+    continue-on-error: true
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m PyInstaller --noconfirm --clean packaging/HandWave-macos.spec
+      - run: cd dist && ditto -c -k --keepParent HandWave.app HandWave-macOS.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/HandWave-macOS.zip

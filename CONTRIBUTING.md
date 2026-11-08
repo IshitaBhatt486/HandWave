@@ -1,17 +1,39 @@
-# Contributing to HandWave
+# Contributing
 
-Thank you for improving HandWave. Open an issue before large changes so the
-approach can be agreed before implementation.
+Thanks for helping out. For anything bigger than a small fix, please open an
+issue first so we can agree on the approach before you spend time on it.
 
-## Development workflow
+## Getting set up
 
-1. Use Python 3.11 on Windows and create a virtual environment.
-2. Install `handwave/requirements.txt`.
-3. Create a focused branch and keep unrelated changes separate.
-4. Run `run_tests.cmd -q` before opening a pull request.
-5. Include tests for behavior changes and update relevant documentation.
+```powershell
+git clone https://github.com/IshitaBhatt486/HandWave.git
+cd HandWave
+scripts\setup.cmd dev
+scripts\run_tests.cmd -q
+```
 
->Local processing and user privacy are core product properties.
+On macOS or Linux, create a Python 3.11 virtual environment and run
+`pip install -r requirements-dev.txt`, then `python -m pytest -q`.
+[docs/development.md](docs/development.md) explains the code layout and the
+parts that are easy to break.
 
-By contributing, you agree that your contribution is licensed under the MIT
-License included in this repository.
+## Pull requests
+
+- Keep each pull request to one change.
+- Add or update tests for behaviour changes, and update the docs if users or
+  contributors would notice the change.
+- Make sure the test suite passes, including the 80% coverage gate.
+- HandWave never sends data off the machine. Changes that add network access
+  or store camera/audio data won't be accepted.
+
+## Mac testing (help wanted)
+
+macOS support has never been tested on a real Mac. You can help without
+writing any code: follow [docs/macos.md](docs/macos.md#how-to-help), work
+through the checklist, and file a
+[macOS test report](https://github.com/IshitaBhatt486/HandWave/issues/new?template=macos-test-report.md).
+
+## Licence
+
+By contributing, you agree that your work is released under the
+[MIT License](LICENSE).

@@ -10,9 +10,8 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from handwave.config.profile import Profile
 from handwave.config.profile_manager import ProfileManager
 from handwave.config.settings_manager import AppSettings
 from handwave.services.app_matcher import AppMatch, select_profile

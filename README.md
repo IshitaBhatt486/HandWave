@@ -1,182 +1,229 @@
-# HandWave
+<p align="center">
+  <a href="https://github.com/IshitaBhatt486/HandWave/releases/latest/download/HandWave.exe">
+    <img src="docs/images/logo.png" width="128" alt="HandWave logo — click to download the latest HandWave.exe">
+  </a><br>
+  <sub>Logo: designed by Ishita Bhatt for HandWave (<code>handwave/assets/handwave.png</code>), MIT.</sub>
+</p>
 
-A local Windows open source tool to add gesture control to your device.
+<h1 align="center">HandWave</h1>
 
-![HandWave dark dashboard](docs/images/dashboard-dark.png)
+<p align="center">
+  Control your computer with hand gestures and a webcam. Everything runs on your machine.<br>
+  <a href="https://github.com/IshitaBhatt486/HandWave/releases/latest/download/HandWave.exe"><b>Download for Windows</b></a>
+  · <a href="#install-from-the-terminal">Install from the terminal</a>
+  · <a href="docs/USER_GUIDE.md">User guide</a>
+  · <a href="CHANGELOG.md">Changelog</a>
+</p>
 
-## What it does
+![HandWave recognising an open palm and playing music](docs/demo/dashboard-dark.png)
+<sub>Source: screenshot of HandWave 1.1.0. Hand photo from [HaGRID](https://github.com/hukenovs/hagrid) (Kapitanov et al.), [HaGRID licence](https://github.com/hukenovs/hagrid/blob/master/license/en_us.pdf), cropped, run through HandWave's recogniser; not MIT-licensed. See [NOTICE](docs/demo/NOTICE.md).</sub>
 
-HandWave watches your webcam for hand poses, swipes, pinches, and two-hand
-gestures, and maps each one to a configurable action (a media key, a
-keyboard shortcut, a mouse click, typed text, or a local program launch).
+HandWave watches your webcam for hand poses, swipes, pinches and two-hand
+gestures, and turns each one into an action you choose: a media key, a
+shortcut, a mouse click, typed text, a macro or a program launch. No video
+leaves your computer, and there's no account, network access or telemetry.
 
-> Availability: microphone support, double-clap activation, and cursor
-> calibration are currently being built and are not available for use yet.
+## Download
 
-> Note: Everything runs on your machine, nothing is uploaded anywhere.
+| Version | Windows | macOS | Notes |
+|---|---|---|---|
+| 1.1.0 | [HandWave.exe](https://github.com/IshitaBhatt486/HandWave/releases/download/v1.1.0/HandWave.exe) | [HandWave-macOS.zip](https://github.com/IshitaBhatt486/HandWave/releases/download/v1.1.0/HandWave-macOS.zip) (experimental) | Onboarding, auto-pause, macros, 3× faster response |
+| 1.0.0-rc.1 | [HandWave.exe](https://github.com/IshitaBhatt486/HandWave/releases/download/v1.0.0-rc.1/HandWave.exe) | — | First release candidate |
+
+All versions, checksums and licence files are on the
+[releases page](https://github.com/IshitaBhatt486/HandWave/releases). The exe
+is portable: download it and run it.
+
+> **Windows may block or warn about the exe.** Releases aren't code-signed
+> yet. SmartScreen lets you continue with **More info → Run anyway**, but
+> Smart App Control blocks unsigned apps completely. If that happens, run from
+> source (below) for now. Signed releases are planned.
+
+> **macOS is experimental.** It uses native macOS APIs but hasn't been tested
+> on a real Mac yet. See [docs/macos.md](docs/macos.md), and if you have a Mac,
+> a [test report](https://github.com/IshitaBhatt486/HandWave/issues/new?template=macos-test-report.md)
+> helps a lot.
+
+### Install from the terminal
+
+**Windows (PowerShell).** This downloads the latest release, checks its
+SHA-256, installs it to `%LOCALAPPDATA%\Programs\HandWave` and adds a Start
+Menu shortcut. No admin rights needed.
+
+```powershell
+irm https://raw.githubusercontent.com/IshitaBhatt486/HandWave/main/scripts/install.ps1 | iex
+```
+
+A specific version, a desktop shortcut too, or removing it again:
+
+```powershell
+$install = [scriptblock]::Create((irm https://raw.githubusercontent.com/IshitaBhatt486/HandWave/main/scripts/install.ps1))
+& $install -Version 1.1.0 -Desktop
+& $install -Uninstall
+```
+
+[Read the script](scripts/install.ps1) before running it if you prefer. To
+just download the file:
+
+```powershell
+curl.exe -LO https://github.com/IshitaBhatt486/HandWave/releases/latest/download/HandWave.exe
+curl.exe -LO https://github.com/IshitaBhatt486/HandWave/releases/latest/download/SHA256SUMS.txt
+(Get-FileHash HandWave.exe).Hash; Get-Content SHA256SUMS.txt   # the two hashes should match
+```
+
+With the [GitHub CLI](https://cli.github.com/):
+`gh release download v1.1.0 -R IshitaBhatt486/HandWave -p HandWave.exe`
+
+**macOS (experimental):**
+
+```bash
+curl -LO https://github.com/IshitaBhatt486/HandWave/releases/latest/download/HandWave-macOS.zip
+ditto -x -k HandWave-macOS.zip /Applications && open /Applications/HandWave.app
+```
+
+## Screenshots
+
+| | |
+|---|---|
+| ![First-run setup](docs/images/onboarding-auto-pause.png) | ![Light theme](docs/demo/dashboard-light.png) |
+| A short first-run setup<br><sub>Source: HandWave screenshot</sub> | Light theme<br><sub>Source: HandWave screenshot; photo from HaGRID</sub> |
+| ![Gesture settings](docs/images/settings-gestures.png) | ![Macro editor](docs/images/macro-editor.png) |
+| Every gesture can be rebound<br><sub>Source: HandWave screenshot</sub> | Macros chain keys, text and waits<br><sub>Source: HandWave screenshot</sub> |
+| ![Auto-pause settings](docs/images/settings-auto-pause.png) | ![Diagnostics](docs/demo/diagnostics-dark.png) |
+| Steps aside for calls and other camera apps<br><sub>Source: HandWave screenshot</sub> | Live performance numbers<br><sub>Source: HandWave screenshot of the HaGRID photo run</sub> |
+
+These are screenshots of the real app. The hand photos come from
+[HaGRID](https://github.com/hukenovs/hagrid) and went through HandWave's own
+recognition, so the landmarks, gesture, confidence and timings shown are real
+measurements. <sub>HaGRID images are not MIT-licensed; faces blurred. See [docs/demo/NOTICE.md](docs/demo/NOTICE.md).</sub>
 
 ## Features
 
-- Real-time, up-to-two-hand tracking with MediaPipe and OpenCV.
-- An extensible action abstraction: media keys, single keys, keyboard
-  combinations, mouse clicks/scroll, typed text, or a validated local
-  program launch with per-action confirmation/hold and cooldown.
-- Two-hand gestures (both palms open, both fists, hands moving apart/together),
-  arbitrated against pinch, swipe, and static poses in a documented priority order.
-- Application profiles that override gesture bindings/sensitivity/cooldown
-  per app (e.g. different bindings for a media player vs. a browser), with
-  automatic switching based on the focused window.
-- Static custom gestures: record a pose a few times, and HandWave builds a
-  recognition profile for it that coexists with the built-in gestures.
-- A bounded action-audit log showing every recognized gesture, the action
-  taken, and when nothing happened, exactly why (cooldown, re-arm, hold
-  duration, disabled, or an execution error).
-- Non-blocking capture, recognition, and action worker threads; a
-  capacity-one latest-frame buffer prevents latency buildup under load.
-- Live confidence, performance diagnostics, activity history, and status indicators.
-- System-tray operation and optional Windows startup.
-- A landmark record/replay tool for deterministic, camera-free testing.
-- PyInstaller portable build and NSIS installer.
-- An 80%-coverage test gate across unit, integration, UI, and benchmark tests.
+- Six built-in poses, swipes, pinch-to-adjust-volume and two-hand gestures.
+- Record your own static gestures.
+- Templates for switching between whole gesture setups.
+- Macros: up to 32 steps of keys, shortcuts, media/mouse actions, text and waits.
+- Double-clap to turn recognition on or off (only loudness is measured; no audio is recorded).
+- Auto-pause while another app uses the camera, during calls, or while chosen programs run.
+- A short first-run setup, dark and light themes, and a system-tray mode.
+- An action log that tells you why a gesture *didn't* fire (cooldown, hold time, disabled…).
 
-## Example gestures
+## Default gestures
 
-| Gesture | Default action |
+| Gesture | Action |
 |---|---|
-| Open Palm | Play / Pause |
-| Thumbs Up | Volume Up |
-| Thumbs Down | Volume Down |
-| Peace Sign | Next Track |
-| Pointing | Previous Track |
-| Swipe Left / Right | Previous / Next virtual desktop |
-| Finger swipe up/down | Latest window / collapse overview |
-| Hand swipe up/down | Show all windows / collapse overview |
-| Pinch and move vertically | Adjust volume |
-| Both palms open, moving apart/together | Two-hand gesture (configurable) |
+| Open palm | Play / pause |
+| Thumbs up / down | Volume up / down |
+| Peace sign | Next track |
+| Pointing | Previous track |
+| Swipe left / right | Previous / next virtual desktop |
+| One-finger swipe up | Switch to the last window (Alt+Tab) |
+| Open-hand swipe up | Task view (Win+Tab) |
+| Swipe down | Esc |
+| Pinch and move up or down | Change volume |
 
-Every gesture's action can be changed to a key, hotkey, mouse action, typed
-text, or program launch from Settings → Gestures & Actions
+Change any of them in **Settings → Gestures & Actions**.
 
-## How it works
+## What improved in 1.1.0
 
-```mermaid
-flowchart LR
-    Camera[Webcam] --> Capture[Capture thread]
-    Capture -->|newest frame only| Buffer[Latest-frame buffer]
-    Buffer --> Recognition[Recognition thread]
-    Recognition --> MediaPipe[MediaPipe landmarks, up to 2 hands]
-    MediaPipe --> Gestures[Built-in + custom + two-hand recognition]
-    Gestures --> Mapper[Cooldown / re-arm / hold gate]
-    Mapper --> Actions[Action queue]
-    Actions --> Worker[Action thread]
-    Worker --> Windows[Keyboard, mouse, media keys, program launch]
-    Recognition --> UI[Qt dashboard and diagnostics]
-```
+Measured on the same laptop (12th-gen Intel, Windows 11) before and after,
+using real HaGRID hand photos. Methods are in [docs/performance.md](docs/performance.md).
 
-Capture, recognition, and action execution each run on their own thread, so a
-slow OS call or a busy inference frame can never freeze the UI. See
-[docs/architecture.md](docs/architecture.md) for the full component diagram.
+**Speed**
 
-## Performance / latency architecture
-
-The recognition thread only processes the latest camera frame. A
-capacity-one buffer discards stale frames instead of queuing them, so
-recognition latency stays bounded even under overload. Action execution
-(keyboard/mouse/media-key/program calls) never runs on the recognition
-thread either, it's handed off to a separate action-queue worker.
-
-## Benchmark results
-
-(See [docs/benchmarking.md](docs/benchmarking.md) for methodology and caveats):
-
-| Metric | FIFO | Latest frame |
+| | 1.0.0-rc.1 | 1.1.0 |
 |---|---:|---:|
-| P95 latency | 934 ms | 14 ms |
-| Frames dropped (of 120) | 0 | 91 (intentional) |
+| Holding a pose until its action fires | ~1.1 s | **~0.35 s** (3× faster) |
+| Stability filter (new pose → recognised) | ~1,040 ms | **~300 ms** |
+| Hand tracking per frame (median / p95) | 44.4 / 74.4 ms | **23.2 / 45.3 ms** |
+| Camera preview render | 2.7 ms | **1.7 ms**, and 0 ms while hidden |
+| Launch time of the portable exe | 54.0 s | **31.7 s** |
 
-| Metric | Synchronous actions | Queued actions |
+**Accuracy** (1,750 HaGRID photos of the six poses, 1,125 photos of other poses)
+
+| | 1.0.0-rc.1 | 1.1.0 |
 |---|---:|---:|
-| Recognition blocked | 216 ms | 0.18 ms |
+| Correct gesture | 58.8% | **81.2%** |
+| Correct when a hand is found | 67.3% | **92.9%** |
+| False triggers on other poses | 13.3% | **4.9%** |
+| Peace sign | 6% | **84%** |
+| Pointing | 42% | **80%** |
+| Thumbs up / down | 55% / 59% | **78% / 75%** |
+| Thumb up-or-folded decision | 62.5% | **94.8%** |
 
-Dropped frames under the latest-frame strategy are a deliberate response to
-overload, not data loss.
+**Size and resources**
 
-## Privacy
+| | 1.0.0-rc.1 | 1.1.0 |
+|---|---:|---:|
+| `HandWave.exe` | 292 MB | **164 MB** (−44%) |
+| Memory added when recognition starts | +71 MB | **+57 MB** |
+| UI-thread CPU while recognising | 4.5% of a core | **1.8%** |
 
-- Camera frames are processed locally and are never uploaded or recorded to
-  disk by default.
-- No networking, telemetry, accounts, or cloud dependencies.
-- Custom-gesture recording stores normalized landmark-derived features and
-  metadata, never video (see [docs/gesture-recognition.md](docs/gesture-recognition.md)).
-- Program-launch actions are validated and always require a confirmation
-  hold before they can fire (see [docs/actions.md](docs/actions.md)).
+Some things haven't changed since 1.0: HandWave only ever processes the
+newest camera frame, so lag can't build up. Under overload the p95 latency is
+14 ms, against 934 ms for a plain queue. Key presses run on their own thread,
+so recognition is blocked for 0.18 ms instead of 216 ms
+([benchmarking.md](docs/benchmarking.md)). The full HaGRID analysis is in the
+[benchmark report](docs/benchmarks/HAGRID_BENCHMARK_REPORT.md).
 
-## Requirements
+![HandWave recognizing HaGRID gestures](docs/demo/hagrid-demo.gif)
+<sub>Source: animation made by `benchmarks/make_hagrid_demo.py` from [HaGRID](https://github.com/hukenovs/hagrid) (Kapitanov et al.), [HaGRID licence](https://github.com/hukenovs/hagrid/blob/master/license/en_us.pdf). Downscaled, faces blurred, HandWave's landmarks and results drawn on top; not MIT-licensed. See [docs/demo/NOTICE.md](docs/demo/NOTICE.md). Also as [MP4](docs/demo/hagrid-demo.mp4).</sub>
 
-- Windows 10 or 11
-- Python 3.11
-- A webcam
+## Run from source
 
-## Quick Start
-
-```powershell
-.\setup.cmd
-.\run.cmd
-```
-
-`setup.cmd` verifies Python 3.11, creates `.venv` if needed, and installs
-`handwave\requirements.txt`. `run.cmd` starts HandWave from that environment.
-> Allow desktop applications to access the camera when Windows asks.
-
-## Development
-
-See [docs/development.md](docs/development.md) for the repository layout,
-engineering model, and how to extend settings, gestures, or actions.
-
-## Testing
+You need Python 3.11 and a webcam.
 
 ```powershell
-.\run_tests.cmd -q
+git clone https://github.com/IshitaBhatt486/HandWave.git
+cd HandWave
+scripts\setup.cmd      # creates .venv and installs requirements.txt
+scripts\run.cmd
 ```
 
-Enforces at least 80% branch coverage and writes JUnit, XML coverage, and
-HTML coverage reports to `test-results/`.
+On macOS:
 
-## Build
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m handwave.main
+```
+
+Tests and builds:
 
 ```powershell
-winget install --id NSIS.NSIS -e
-.\build_release.cmd
+scripts\setup.cmd dev          # adds pytest and PyInstaller
+scripts\run_tests.cmd -q       # full suite with the 80% coverage gate
+scripts\build_release.cmd      # dist\HandWave.exe, installer and checksums
 ```
 
-Outputs are written to `dist/`: a portable executable, an NSIS installer, and
-SHA-256 checksums.
+[docs/development.md](docs/development.md) explains the code layout,
+[docs/architecture.md](docs/architecture.md) has diagrams of how it works, and
+[docs/releasing.md](docs/releasing.md) covers builds and releases.
 
 ## Known limitations
 
-- Custom gestures currently support static single-hand poses only; motion
-  and two-hand custom gestures are not yet implemented
-- Two-hand tracking can occasionally swap which hand is "primary" for a
-  single frame when hands cross rapidly; this is a display flicker, not a crash.
-- Microphone support, double-clap activation, and cursor calibration are under
-  construction and unavailable in the current release.
+- Custom gestures are static, single-hand poses only.
+- Fist (72%) and thumbs down (75%) are the least reliable poses.
+- The cursor overlay only shows where your hand points; it doesn't move the real cursor.
+- Releases aren't code-signed yet, so Smart App Control blocks them.
+- macOS hasn't been tested on real hardware.
 
 ## Documentation
 
-- [User Guide](docs/USER_GUIDE.md)
-- [Architecture](docs/architecture.md)
-- [Gesture Recognition](docs/gesture-recognition.md)
-- [Actions](docs/actions.md)
-- [Application Profiles](docs/profiles.md)
-- [Benchmarking](docs/benchmarking.md)
-- [Development](docs/development.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Release Guide](RELEASE.md)
-- [Product Review](PRODUCT_REVIEW.md)
+- [User guide](docs/USER_GUIDE.md) and [troubleshooting](docs/troubleshooting.md)
+- [Architecture](docs/architecture.md), [gesture recognition](docs/gesture-recognition.md),
+  [actions](docs/actions.md), [profiles](docs/profiles.md)
+- [macOS](docs/macos.md), [releasing](docs/releasing.md)
 
-## Contributing and security
+## Contributing
 
-Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Please report
-security concerns privately using the process in [SECURITY.md](SECURITY.md).
+Bug reports, fixes and Mac testing are all welcome; see
+[CONTRIBUTING.md](CONTRIBUTING.md). Please report security problems privately
+as described in [SECURITY.md](SECURITY.md).
 
-HandWave is available under the [MIT License](LICENSE).
+## Licence
+
+HandWave's source code is under the [MIT License](LICENSE). The downloadable
+builds bundle PyQt6 and other GPL v3 components, so the builds as a whole are
+distributed under the GPL v3. Each one includes `THIRD_PARTY_LICENSES.txt`.
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for what that means.

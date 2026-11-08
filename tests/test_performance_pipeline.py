@@ -56,3 +56,37 @@ def test_diagnostics_reports_cpu_and_memory_estimates():
     cpu_percent, memory_mb = monitor.update()
     assert cpu_percent >= 0
     assert memory_mb >= 0
+
+
+def test_working_set_is_actually_measured_on_windows():
+    """Regression: undeclared ctypes signatures made this always return 0."""
+    import os
+    import pytest
+    from handwave.diagnostics.pipeline_metrics import DiagnosticsMonitor
+
+    if os.name != "nt":
+        pytest.skip("Windows-only measurement")
+    assert DiagnosticsMonitor._working_set_bytes() > 10 * 1024 * 1024
+
+
+def test_process_uses_the_newer_system_cpp_runtime():
+    """Regression: PyQt6 6.7's 2020 msvcp140 crashed newer OpenCV/MediaPipe threads."""
+    import ctypes
+    import os
+    from ctypes import wintypes
+
+    import pytest
+
+    if os.name != "nt":
+        pytest.skip("Windows-only")
+    import cv2  # noqa: F401
+    import PyQt6.QtWidgets  # noqa: F401
+    from handwave._runtime import MINIMUM_VERSION, _file_version
+
+    kernel32 = ctypes.WinDLL("kernel32")
+    kernel32.GetModuleHandleW.restype = wintypes.HMODULE
+    kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+    kernel32.GetModuleFileNameW.argtypes = [wintypes.HMODULE, wintypes.LPWSTR, wintypes.DWORD]
+    buffer = ctypes.create_unicode_buffer(1024)
+    kernel32.GetModuleFileNameW(kernel32.GetModuleHandleW("msvcp140.dll"), buffer, 1024)
+    assert _file_version(buffer.value) >= MINIMUM_VERSION, buffer.value

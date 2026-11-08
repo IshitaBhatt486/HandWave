@@ -5,11 +5,12 @@ from __future__ import annotations
 import statistics
 from enum import IntEnum
 
-from PyQt6.QtCore import QTimer, Qt, pyqtSignal
+from PyQt6.QtCore import QRectF, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QPushButton, QProgressBar, QVBoxLayout, QWidget
 from handwave.actions.cursor_reach_mapper import apply_dead_zone, normalize_reach
 from handwave.services.monitor_layout import MonitorLayout
+from handwave import platforms
 
 
 class CalibrationStep(IntEnum):
@@ -25,20 +26,22 @@ class ReachPreview(QWidget):
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor("#0f172a"))
+        painter.fillRect(self.rect(), QColor("#0e0e0f"))
         if self.frame is not None:
             painter.drawImage(self.rect(), self.frame)
         bounds = self.rect().adjusted(24, 24, -24, -24)
         if self.profile:
-            p = self.profile; painter.setPen(QPen(QColor("#5eead4"), 2)); painter.setBrush(QColor(45, 212, 191, 38))
-            painter.drawRect(bounds.left()+p["left"]*bounds.width(), bounds.top()+p["top"]*bounds.height(), (p["right"]-p["left"])*bounds.width(), (p["bottom"]-p["top"])*bounds.height())
+            p = self.profile; painter.setPen(QPen(QColor("#c9a96e"), 2)); painter.setBrush(QColor(201, 169, 110, 34))
+            # QRectF: the reach box is fractional; int-only drawRect overloads
+            # raise TypeError, which aborts the app from inside paintEvent.
+            painter.drawRect(QRectF(bounds.left()+p["left"]*bounds.width(), bounds.top()+p["top"]*bounds.height(), (p["right"]-p["left"])*bounds.width(), (p["bottom"]-p["top"])*bounds.height()))
             painter.setBrush(QColor("#fbbf24")); painter.drawEllipse(int(bounds.left()+p["center_x"]*bounds.width()-8), int(bounds.top()+p["center_y"]*bounds.height()-8), 16, 16)
         capture_targets = {CalibrationStep.CENTER:(.5,.5), CalibrationStep.LEFT:(.15,.5), CalibrationStep.RIGHT:(.85,.5), CalibrationStep.TOP:(.5,.15), CalibrationStep.BOTTOM:(.5,.85)}
         if self.step in capture_targets:
             target = capture_targets[self.step]
             x,y = bounds.left()+target[0]*bounds.width(), bounds.top()+target[1]*bounds.height()
-            painter.setPen(QPen(QColor("#5eead4"), 3)); painter.setBrush(Qt.BrushStyle.NoBrush); painter.drawEllipse(int(x-22),int(y-22),44,44)
-            painter.setBrush(QColor("#5eead4")); painter.drawEllipse(int(x-5),int(y-5),10,10)
+            painter.setPen(QPen(QColor("#c9a96e"), 3)); painter.setBrush(Qt.BrushStyle.NoBrush); painter.drawEllipse(int(x-22),int(y-22),44,44)
+            painter.setBrush(QColor("#c9a96e")); painter.drawEllipse(int(x-5),int(y-5),10,10)
         if self.hand:
             x,y = bounds.left()+self.hand[0]*bounds.width(), bounds.top()+self.hand[1]*bounds.height()
             painter.setPen(QPen(QColor("#f97316"), 2)); painter.setBrush(QColor("#fb923c")); painter.drawEllipse(int(x-7),int(y-7),14,14)
@@ -52,7 +55,7 @@ class ReachPreview(QWidget):
             u,v = self._map_to_virtual_cursor(*self.hand)
             painter.setPen(Qt.PenStyle.NoPen); painter.setBrush(QColor("#fbbf24")); painter.drawEllipse(int(screen.left()+u*screen.width()-5), int(screen.top()+v*screen.height()-5), 10, 10)
         if self.validation_target:
-            tx,ty=self.validation_target; painter.setPen(QPen(QColor("#5eead4"), 2)); painter.setBrush(Qt.BrushStyle.NoBrush)
+            tx,ty=self.validation_target; painter.setPen(QPen(QColor("#c9a96e"), 2)); painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(int(screen.left()+tx*screen.width()-10), int(screen.top()+ty*screen.height()-10), 20, 20)
         painter.setPen(QColor("#e2e8f0")); painter.drawText(screen.adjusted(5, 4, -5, -4), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft, "Virtual screen")
         painter.end()
@@ -100,14 +103,17 @@ class CursorCalibrationDialog(QDialog):
         self._update_monitor_status()
         self.target_mode.currentIndexChanged.connect(self._update_monitor_status)
         self.start, self.redo, self.accept_button, self.cancel = QPushButton("Start Calibration"), QPushButton("Redo Calibration"), QPushButton("Save Calibration"), QPushButton("Cancel")
+        self.retry_step = QPushButton("Retry Step")
         self.start.clicked.connect(self.start_calibration); self.redo.clicked.connect(self.start_calibration); self.accept_button.clicked.connect(self.accept_calibration); self.cancel.clicked.connect(self.reject)
-        actions=QHBoxLayout(); actions.addWidget(self.start); actions.addWidget(self.redo); actions.addWidget(self.accept_button); actions.addStretch(); actions.addWidget(self.cancel)
+        self.retry_step.clicked.connect(self._retry_step)
+        actions=QHBoxLayout(); actions.addWidget(self.start); actions.addWidget(self.retry_step); actions.addWidget(self.redo); actions.addWidget(self.accept_button); actions.addStretch(); actions.addWidget(self.cancel)
         dead_zone_row=QHBoxLayout(); dead_zone_row.addWidget(QLabel("Center dead zone")); dead_zone_row.addWidget(self.dead_zone); dead_zone_row.addStretch()
         smoothing_row=QHBoxLayout(); smoothing_row.addWidget(QLabel("Cursor smoothing")); smoothing_row.addWidget(self.smoothing); smoothing_row.addStretch()
         target_row=QHBoxLayout(); target_row.addWidget(QLabel("Cursor target")); target_row.addWidget(self.target_mode); target_row.addStretch()
         metrics=QHBoxLayout(); metrics.addWidget(self.score); metrics.addWidget(self.coverage); metrics.addWidget(self.stability)
         layout=QVBoxLayout(self); layout.setSpacing(14); layout.addWidget(self.title); layout.addWidget(self.instruction); layout.addWidget(self.preview); layout.addWidget(self.countdown); layout.addWidget(self.progress); layout.addWidget(self.monitor_status); layout.addLayout(metrics); layout.addLayout(target_row); layout.addLayout(dead_zone_row); layout.addLayout(smoothing_row); layout.addLayout(actions)
         self._step, self._remaining_ms, self._samples, self._values = CalibrationStep.WELCOME, 0, [], {}
+        self._step_failed, self._welcome_message = False, ""
         self._validation_index, self._validation_samples, self._validation_results = 0, [], []
         self._timer=QTimer(self); self._timer.setInterval(100); self._timer.timeout.connect(self._advance)
         self._render()
@@ -132,17 +138,22 @@ class CursorCalibrationDialog(QDialog):
         self.preview.update()
 
     def start_calibration(self) -> None:
-        self._step, self._values = CalibrationStep.CENTER, {}; self._begin_step()
+        self._step, self._values, self._welcome_message = CalibrationStep.CENTER, {}, ""
+        self._validation_score = 0; self._validation_results = []; self._begin_step()
 
     def _begin_step(self) -> None:
-        self._samples=[]; self._remaining_ms=(self.COUNTDOWN_SECONDS*1000)+self.HOLD_MS; self._timer.start(); self._render()
+        self._step_failed=False; self._samples=[]; self._remaining_ms=(self.COUNTDOWN_SECONDS*1000)+self.HOLD_MS; self._timer.start(); self._render()
+
+    def _retry_step(self) -> None:
+        if self._step in self._TEXT: self._begin_step()
 
     def _advance(self) -> None:
         self._remaining_ms -= self._timer.interval()
         if self._remaining_ms > 0: self._render(); return
         self._timer.stop()
         if len(self._samples) < 3:
-            self.instruction.setText("Hand not detected steadily. Keep your index finger visible and try again."); self._render(); return
+            self._step_failed=True; self._render()
+            self.instruction.setText("Hand not detected steadily. Keep your index finger visible, then select Retry Step."); return
         x=statistics.median(point[0] for point in self._samples); y=statistics.median(point[1] for point in self._samples)
         if self._step == CalibrationStep.CENTER:
             self._values["center_x"], self._values["center_y"] = x, y
@@ -155,8 +166,23 @@ class CursorCalibrationDialog(QDialog):
         else:
             self._values["bottom"] = y
         self._step=CalibrationStep(self._step+1)
-        if self._step == CalibrationStep.VALIDATION: self._start_validation()
+        if self._step == CalibrationStep.VALIDATION:
+            problem = self._reach_problem()
+            if problem:
+                self._step, self._welcome_message = CalibrationStep.WELCOME, problem; self._render(); return
+            self._start_validation()
         else: self._begin_step()
+
+    MIN_REACH = 0.03
+
+    def _reach_problem(self) -> str:
+        """Explain why the captured reach cannot form a usable cursor box."""
+        v = self._values
+        if not v["left"] + self.MIN_REACH <= v["center_x"] <= v["right"] - self.MIN_REACH:
+            return "Left and right reach must be on either side of the center position. Start the calibration again and move further left and right."
+        if not v["top"] + self.MIN_REACH <= v["center_y"] <= v["bottom"] - self.MIN_REACH:
+            return "Top and bottom reach must be above and below the center position. Start the calibration again and move further up and down."
+        return ""
 
     def accept_calibration(self) -> None:
         if self._step != CalibrationStep.RESULTS: return
@@ -219,13 +245,14 @@ class CursorCalibrationDialog(QDialog):
     def _render(self) -> None:
         self.preview.validation_target=self.VALIDATION_TARGETS[self._validation_index] if self._step == CalibrationStep.VALIDATION else None
         self.preview.step=self._step; self.preview.profile=self._display_profile(); self.preview.update()
-        self.progress.setValue(min(int(self._step),7)); self.start.setVisible(self._step == CalibrationStep.WELCOME); self.redo.setVisible(self._step == CalibrationStep.RESULTS); self.accept_button.setVisible(self._step == CalibrationStep.RESULTS)
+        self.progress.setValue(min(int(self._step),7)); self.start.setVisible(self._step == CalibrationStep.WELCOME); self.redo.setVisible(self._step in {CalibrationStep.VALIDATION, CalibrationStep.RESULTS}); self.accept_button.setVisible(self._step == CalibrationStep.RESULTS)
+        self.retry_step.setVisible(self._step in self._TEXT and self._step_failed)
         score=getattr(self,"_validation_score",0); results=self._validation_results
-        accuracy=statistics.fmean(item[0] for item in results) if results else 0; stability=statistics.fmean(item[1] for item in results) if results else 0
+        stability=statistics.fmean(item[1] for item in results) if results else 0
         self.score.setText(f"Calibration Score  {score:.0f}%"); self.coverage.setText(f"Reach Coverage  {len(results)}/{len(self.VALIDATION_TARGETS)}"); self.stability.setText(f"Stability Score  {stability:.0f}%")
-        if self._step == CalibrationStep.WELCOME: self.title.setText("Cursor reach calibration"); self.instruction.setText("We will learn the limits of your comfortable hand movement."); self.countdown.setText("")
+        if self._step == CalibrationStep.WELCOME: self.title.setText("Cursor reach calibration"); self.instruction.setText(self._welcome_message or "We will learn the limits of your comfortable hand movement. Keep your index finger visible to the camera."); self.countdown.setText("")
         elif self._step == CalibrationStep.VALIDATION:
-            self.title.setText("Validate your calibration"); self.instruction.setText(f"Move the virtual cursor to target {self._validation_index+1} of {len(self.VALIDATION_TARGETS)} and hold it steady."); self.countdown.setText("Virtual cursor only — Windows cursor will not move")
+            self.title.setText("Validate your calibration"); self.instruction.setText(f"Move the virtual cursor to target {self._validation_index+1} of {len(self.VALIDATION_TARGETS)} and hold it steady."); self.countdown.setText(f"Virtual cursor only — {platforms.os_label()} cursor will not move")
         elif self._step == CalibrationStep.RESULTS:
             valid=score >= 70 and len(results) == len(self.VALIDATION_TARGETS) and stability >= 60
             self.title.setText("Calibration validation results"); self.instruction.setText("Calibration is ready to save." if valid else "Recalibration recommended: reach accuracy or stability was too low."); self.countdown.setText("Results ready")

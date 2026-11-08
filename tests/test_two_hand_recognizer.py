@@ -21,10 +21,10 @@ def _landmarks_at(cx, cy, open_palm=True):
                 NormalizedLandmark(cx + x, cy - 0.23, 0.0),
             ]
     else:
-        base[2:5] = [
-            NormalizedLandmark(cx - 0.08, cy + 0.22, 0.0),
-            NormalizedLandmark(cx - 0.20, cy + 0.22, 0.0),
-            NormalizedLandmark(cx - 0.20, cy + 0.32, 0.0),
+        base[2:5] = [  # thumb tucked across the palm, as in a real fist
+            NormalizedLandmark(cx - 0.10, cy + 0.30, 0.0),
+            NormalizedLandmark(cx - 0.06, cy + 0.25, 0.0),
+            NormalizedLandmark(cx - 0.02, cy + 0.21, 0.0),
         ]
         for offset, x in zip((5, 9, 13, 17), (-0.15, -0.05, 0.05, 0.15)):
             base[offset : offset + 4] = [

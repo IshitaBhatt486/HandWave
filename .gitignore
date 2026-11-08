@@ -1,41 +1,49 @@
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-test-results/
-
+*.egg-info/
 .venv/
 venv/
 env/
 
+# Tests and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+test-results/
 .test-tmp/
-tmp/
-*.tmp
 
-# Runtime user data (created on first launch / by tests importing default paths)
-handwave/config/settings.json
-handwave/config/settings.json.bak
-handwave/config/profiles.json
-handwave/config/profiles.json.bak
-handwave/config/custom_gestures.json
-handwave/config/custom_gestures.json.bak
+# Linters
+.mypy_cache/
+.ruff_cache/
 
+# Builds (PyInstaller, NSIS, macOS app)
 build/
 dist/
+.build-release/
 *.toc
 *.pkg
 
-*.log
-*.pid
+# Local user data written by older versions when run from source
+handwave/config/settings.json*
+handwave/config/profiles.json*
+handwave/config/templates.json*
+handwave/config/custom_gestures.json*
+handwave/gestures/custom_gestures.json*
 
+# Generated benchmark data (charts and summary.json are kept)
+benchmarks/results/**/predictions.csv
+
+# Editors and OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 Desktop.ini
+*.log
+*.tmp
+tmp/
 
-docs-internal
+# Maintainer notes (not published)
+docs-internal/

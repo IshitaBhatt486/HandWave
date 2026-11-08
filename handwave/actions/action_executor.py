@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import time
 from collections.abc import Callable
 from typing import Any
 
 import pyautogui
 
-from handwave.actions.action_definition import ActionDefinition, parse_hotkey
+from handwave.actions.action_definition import ActionDefinition, MacroStep, parse_hotkey
+from handwave import platforms
 
 try:
     import keyboard
-except ImportError:
+except ImportError:  # not installed on macOS (it needs root there)
     keyboard = None
 
 logger = logging.getLogger(__name__)
@@ -28,17 +30,34 @@ class ActionExecutor:
         ("hotkey", "win+tab"),
         ("hotkey", "win+ctrl+left"),
         ("hotkey", "win+ctrl+right"),
+        # macOS defaults (Spaces, Mission Control, app switcher)
+        ("hotkey", "ctrl+left"),
+        ("hotkey", "ctrl+right"),
+        ("hotkey", "ctrl+up"),
+        ("hotkey", "command+tab"),
     }
+    # Windows key names → macOS key names, so shared bindings still work.
+    MAC_KEY_NAMES = {"win": "command", "alt": "option"}
 
     def __init__(
         self,
         pyautogui_module: Any = pyautogui,
         keyboard_module: Any = keyboard,
         program_launcher: Callable[..., Any] = subprocess.Popen,
+        sleep: Callable[[float], None] = time.sleep,
+        macos: bool | None = None,
+        media_key_poster: Callable[[str], None] | None = None,
     ) -> None:
         self._pyautogui = pyautogui_module
-        self._keyboard = keyboard_module
+        self._macos = platforms.is_macos() if macos is None else macos
+        # The ``keyboard`` package needs root on macOS and is unreliable there;
+        # pyautogui (Quartz events) is used instead.
+        self._keyboard = None if self._macos else keyboard_module
+        if media_key_poster is None and self._macos:
+            from handwave.platforms.macos import post_media_key as media_key_poster
+        self._media_key_poster = media_key_poster
         self._program_launcher = program_launcher
+        self._sleep = sleep
         self._pyautogui.FAILSAFE = True
 
     def callback_for(self, action: ActionDefinition) -> Callable[[], None]:
@@ -58,11 +77,33 @@ class ActionExecutor:
             self._safe_input(action, lambda: self._execute_mouse(str(action.value)))
         elif action.type == "text":
             self._pyautogui.write(str(action.value))
+        elif action.type == "macro":
+            self.execute_macro(action.value)
         elif action.type == "command":
             # A validated argv sequence and shell=False avoid shell-string execution.
-            self._program_launcher(list(action.value), shell=False)
+            argv = list(action.value)
+            if self._macos:
+                from handwave.platforms.macos import open_application_command
+
+                argv = open_application_command(argv)
+            self._program_launcher(argv, shell=False)
         else:  # Defensive guard if an object bypassed ActionDefinition validation.
             raise ValueError(f"Unsupported action type: {action.type}")
+
+    def execute_macro(self, steps: tuple[MacroStep, ...]) -> None:
+        """Replay macro steps in order on the action worker thread.
+
+        Runs off the recognition thread (see ActionQueue), so waits never
+        delay gesture recognition. A failing step stops the macro, so later
+        steps never run against an unexpected state.
+        """
+        for step in steps:
+            if step.type == "wait":
+                self._sleep(int(step.value) / 1000.0)
+            elif step.type == "text":
+                self._pyautogui.write(step.value)
+            else:
+                self.execute(ActionDefinition(step.type, step.value))
 
     @staticmethod
     def _safe_input(action: ActionDefinition, callback: Callable[[], None]) -> None:
@@ -80,7 +121,11 @@ class ActionExecutor:
                 raise
             logger.warning("Local input action unavailable (%s): %s", action.describe(), exc)
 
+    def _mac_keys(self, keys):
+        return [self.MAC_KEY_NAMES.get(key, key) for key in keys] if self._macos else list(keys)
+
     def _execute_key(self, value: str) -> None:
+        value = self._mac_keys([value])[0]
         try:
             self._pyautogui.press(value)
         except Exception:
@@ -90,7 +135,7 @@ class ActionExecutor:
             self._keyboard.send(value)
 
     def _execute_hotkey(self, value: str) -> None:
-        keys = parse_hotkey(value)
+        keys = self._mac_keys(parse_hotkey(value))
         try:
             self._pyautogui.hotkey(*keys)
         except Exception:
@@ -100,6 +145,10 @@ class ActionExecutor:
             self._keyboard.send("+".join(keys))
 
     def _execute_media(self, value: str) -> None:
+        if self._media_key_poster is not None:
+            # macOS: post real media-key events (controls the Now Playing app).
+            self._media_key_poster(value)
+            return
         pyautogui_keys = {
             "play_pause": "playpause",
             "volume_up": "volumeup",

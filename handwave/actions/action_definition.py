@@ -15,7 +15,94 @@ ACTION_TYPES = {
     "mouse": "Mouse action",
     "text": "Type text",
     "command": "Launch program",
+    "macro": "Macro (sequence)",
 }
+
+# Steps a macro may contain. Program launches are deliberately excluded: a
+# macro replays input only, so it can never start software.
+MACRO_STEP_TYPES = {
+    "key": "Press key",
+    "hotkey": "Key combination",
+    "media": "Media action",
+    "mouse": "Mouse action",
+    "text": "Type text",
+    "wait": "Wait (ms)",
+}
+MAX_MACRO_STEPS = 32
+MAX_MACRO_WAIT_MS = 10_000  # total waiting per macro
+
+
+@dataclass(frozen=True)
+class MacroStep:
+    """One validated step of a macro."""
+
+    type: str
+    value: str
+
+    def __post_init__(self) -> None:
+        if self.type not in MACRO_STEP_TYPES:
+            raise ValueError(f"Unsupported macro step: {self.type}")
+        value = self.value
+        if self.type == "wait":
+            try:
+                milliseconds = int(str(value).strip())
+            except ValueError as exc:
+                raise ValueError("Macro wait must be a whole number of milliseconds") from exc
+            if not 0 < milliseconds <= MAX_MACRO_WAIT_MS:
+                raise ValueError("Macro wait must be between 1 and 10000 ms")
+            value = str(milliseconds)
+        elif self.type == "key":
+            value = normalize_key(str(value))
+        elif self.type == "hotkey":
+            value = "+".join(parse_hotkey(str(value)))
+        elif self.type == "media":
+            if value not in MEDIA_ACTIONS:
+                raise ValueError("Unsupported media action in macro")
+        elif self.type == "mouse":
+            if value not in MOUSE_ACTIONS:
+                raise ValueError("Unsupported mouse action in macro")
+        else:  # text
+            value = str(value)
+            if not value or len(value) > 1000 or "\0" in value:
+                raise ValueError("Macro text must contain between 1 and 1000 characters")
+        object.__setattr__(self, "value", str(value))
+
+    def to_dict(self) -> dict[str, str]:
+        return {"type": self.type, "value": self.value}
+
+    def describe(self) -> str:
+        if self.type == "wait":
+            return f"Wait {self.value} ms"
+        if self.type == "media":
+            return MEDIA_ACTIONS[self.value]
+        if self.type == "mouse":
+            return MOUSE_ACTIONS[self.value]
+        if self.type == "text":
+            return f"Type “{self.value}”"
+        return f"Press {self.value}"
+
+
+def parse_macro(value: object) -> tuple[MacroStep, ...]:
+    """Validate a macro from stored data (list of step objects) or steps."""
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("Macro must be a list of steps")
+    steps = tuple(
+        step if isinstance(step, MacroStep)
+        else MacroStep(str(step.get("type", "")), str(step.get("value", ""))) if isinstance(step, dict)
+        else _raise(ValueError("Each macro step must be an object with type and value"))
+        for step in value
+    )
+    if not 1 <= len(steps) <= MAX_MACRO_STEPS:
+        raise ValueError(f"Macro must contain between 1 and {MAX_MACRO_STEPS} steps")
+    if all(step.type == "wait" for step in steps):
+        raise ValueError("Macro needs at least one input step, not only waits")
+    if sum(int(step.value) for step in steps if step.type == "wait") > MAX_MACRO_WAIT_MS:
+        raise ValueError("Macro waits may total at most 10 seconds")
+    return steps
+
+
+def _raise(exc: Exception):
+    raise exc
 
 MEDIA_ACTIONS = {
     "play_pause": "Play / Pause",
@@ -36,13 +123,15 @@ MOUSE_ACTIONS = {
 
 _KEY_ALIASES = {
     "escape": "esc",
+    "cmd": "command",
+    "opt": "option",
     "control": "ctrl",
     "return": "enter",
     "pageup": "pageup",
     "pagedown": "pagedown",
     "spacebar": "space",
 }
-_MODIFIERS = {"ctrl", "alt", "shift", "win", "command"}
+_MODIFIERS = {"ctrl", "alt", "shift", "win", "command", "option"}
 
 
 def normalize_key(value: str) -> str:
@@ -86,7 +175,7 @@ class ActionDefinition:
     """A side-effect-free action request created from trusted configuration."""
 
     type: str = "none"
-    value: str | tuple[str, ...] = ""
+    value: str | tuple[str, ...] | tuple["MacroStep", ...] = ""
     requires_confirmation: bool = False
     hold_duration: float = 0.0
     cooldown: float | None = None
@@ -134,6 +223,8 @@ class ActionDefinition:
             normalized = str(self.value)
             if not normalized or len(normalized) > 1000 or "\0" in normalized:
                 raise ValueError("Text must contain between 1 and 1000 characters")
+        elif self.type == "macro":
+            normalized = parse_macro(self.value)
         else:
             normalized = parse_command(self.value)
 
@@ -151,7 +242,10 @@ class ActionDefinition:
         return max(self.hold_duration, self.CONFIRMATION_HOLD) if self.requires_confirmation else self.hold_duration
 
     def to_dict(self) -> dict[str, Any]:
-        value: str | list[str] = list(self.value) if isinstance(self.value, tuple) else self.value
+        if self.type == "macro":
+            value: object = [step.to_dict() for step in self.value]
+        else:
+            value = list(self.value) if isinstance(self.value, tuple) else self.value
         return {
             "type": self.type,
             "value": value,
@@ -190,4 +284,6 @@ class ActionDefinition:
             return MOUSE_ACTIONS[str(self.value)]
         if self.type == "command":
             return f"Launch {self.value[0]}"
+        if self.type == "macro":
+            return f"Macro · {len(self.value)} step{'s' if len(self.value) != 1 else ''}"
         return str(self.value)

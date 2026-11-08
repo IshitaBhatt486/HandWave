@@ -58,7 +58,28 @@ def test_worker_reports_camera_disconnect_and_releases_device(qtbot):
             worker.run()
 
     assert "stopped returning frames" in signal.args[0]
-    capture.release.assert_called_once()
+    # One reopen attempt after the first burst of failed reads, then a final release.
+    assert capture.release.call_count == 2
+    assert capture.read.call_count == 2 * CameraWorker.MAX_CONSECUTIVE_READ_FAILURES
+
+
+def test_worker_rides_out_brief_read_glitches(qtbot):
+    capture = MagicMock()
+    capture.isOpened.return_value = True
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    reads = [(False, None)] * 3 + [(True, frame)]
+    stop_event = MagicMock()
+    stop_event.is_set.side_effect = [False] * 4 + [True]
+    worker = CameraWorker(0, stop_event)
+    errors = []
+    worker.error.connect(errors.append)
+    capture.read.side_effect = reads
+
+    with patch("handwave.vision.camera_manager.cv2.VideoCapture", return_value=capture):
+        worker.run()
+
+    assert errors == []
+    assert worker.buffer.frames_dropped == 0
 
 
 def test_gesture_worker_releases_engine(qtbot):
@@ -191,3 +212,26 @@ def test_stop_camera_requests_shutdown_without_waiting_on_threads():
     manager._capture_thread.wait.assert_not_called()
     manager._gesture_thread.wait.assert_not_called()
     manager._action_thread.wait.assert_not_called()
+
+
+def test_worker_paces_by_capture_time_not_by_sleeping(qtbot):
+    """Frames >= 25 ms apart are all processed; a faster camera is thinned to ~30/s."""
+    stop_event = MagicMock()
+    buffer = MagicMock()
+    capture_times = [0.000, 0.033, 0.050, 0.066, 0.100]  # 0.050 arrives only 17 ms later
+    packets = [MagicMock(frame=np.zeros((8, 8, 3), dtype=np.uint8), captured_at=t, camera_fps=30.0) for t in capture_times]
+    buffer.get_packet.side_effect = packets + [None]
+    buffer.frames_dropped = 0
+    stop_event.is_set.side_effect = [False] * len(capture_times) + [True]
+    engine = MagicMock()
+    gesture = MagicMock(hands=(), landmarks=None, two_hand=MagicMock(name="Unknown"))
+    gesture.name = "Unknown"
+    gesture.two_hand.name = "Unknown"
+    engine.process.return_value = (np.zeros((8, 8, 3), dtype=np.uint8), gesture)
+    worker = GestureWorker(buffer, stop_event, AppSettings(overlay_enabled=False))
+
+    with patch("handwave.gestures.gesture_engine.GestureEngine", return_value=engine):
+        worker.run()
+
+    assert engine.process.call_count == 4  # 0.000, 0.033, 0.066, 0.100 — the 17 ms frame is skipped
+    stop_event.wait.assert_not_called()  # no sleeping in the loop

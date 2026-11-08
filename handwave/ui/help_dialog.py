@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QFrame, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+
+from handwave.version import __version__
+
+REPOSITORY_URL = "https://github.com/IshitaBhatt486/HandWave"
+# Shown in the app because the distributed program includes GPL v3 components (GPL v3, section 5(d)).
+LEGAL_NOTICE = (
+    f"HandWave {__version__}. The source code is MIT-licensed. Builds include PyQt6 and other "
+    "GPL v3 components, so this program is distributed under the GNU GPL v3 and comes with "
+    "NO WARRANTY. Source code and the full list of third-party licences "
+    "(THIRD_PARTY_LICENSES.txt, also included next to each download) are at "
+    f'<a href="{REPOSITORY_URL}">{REPOSITORY_URL.removeprefix("https://")}</a>.'
+)
 
 
 class HelpDialog(QDialog):
@@ -13,6 +26,7 @@ class HelpDialog(QDialog):
         ("2. Use gestures", "Hold a static gesture briefly. Point up, down, left, or right; swipe in the same directions for motion controls."),
         ("3. Customize actions", "Open Settings > Gestures & Actions to enable gestures and choose media keys, hotkeys, mouse actions, or text."),
         ("4. Background and exit", "Closing normally keeps HandWave in the tray. Enable Settings > General > Exit HandWave when I close the window to fully terminate it."),
+        ("About and licences", LEGAL_NOTICE),
     )
 
     def __init__(self, parent=None) -> None:
@@ -35,6 +49,8 @@ class HelpDialog(QDialog):
             card_layout.setContentsMargins(16, 13, 16, 13)
             title_label = QLabel(title); title_label.setObjectName("helpCardTitle")
             body_label = QLabel(body); body_label.setObjectName("helpCardBody"); body_label.setWordWrap(True)
+            body_label.setTextFormat(Qt.TextFormat.RichText)
+            body_label.setOpenExternalLinks(True)
             card_layout.addWidget(title_label); card_layout.addWidget(body_label)
             cards_layout.addWidget(card)
         cards_layout.addStretch()

@@ -50,6 +50,12 @@ class DiagnosticsMonitor:
 
     @staticmethod
     def _working_set_bytes() -> int:
+        from handwave import platforms
+
+        if platforms.is_macos():
+            from handwave.platforms.macos import resident_memory_bytes
+
+            return resident_memory_bytes()
         if os.name != "nt":
             return 0
 
@@ -63,9 +69,17 @@ class DiagnosticsMonitor:
                 ("PrivateUsage", ctypes.c_size_t),
             ]
 
+        # Declare the signatures: without them ctypes passes the process handle
+        # (a 64-bit pseudo-handle, -1) as a 32-bit int, the call fails on
+        # 64-bit Windows, and memory always read 0 MB.
+        from ctypes import wintypes
+
+        kernel32, psapi = ctypes.WinDLL("kernel32"), ctypes.WinDLL("psapi")
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
         counters = Counters()
         counters.cb = ctypes.sizeof(counters)
-        process = ctypes.windll.kernel32.GetCurrentProcess()
-        if ctypes.windll.psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb):
+        if psapi.GetProcessMemoryInfo(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
             return int(counters.WorkingSetSize)
         return 0

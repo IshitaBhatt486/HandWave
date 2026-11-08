@@ -15,12 +15,9 @@ from dataclasses import dataclass
 
 from handwave.gestures.hand_state import HandState
 
-# Both hands must hold this pose simultaneously before motion is considered
-# meaningful; this is what keeps incidental repositioning (e.g. while doing an
-# unrelated single-hand gesture) from being misread as a two-hand gesture.
-MOTION_REQUIRES_OPEN_PALMS = True
+# Minimum change in hand separation per frame that counts as moving apart/together.
+# Motion only counts while both hands hold an open palm (see update()).
 MOTION_DISTANCE_THRESHOLD = 0.03
-MIN_HAND_TIMESTAMP_GAP = 1e-6
 
 
 @dataclass(frozen=True)
@@ -42,11 +39,9 @@ class TwoHandRecognizer:
     def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._previous_distance: float | None = None
-        self._previous_timestamp: float | None = None
 
     def reset(self) -> None:
         self._previous_distance = None
-        self._previous_timestamp = None
 
     def update(self, hands: list[HandState]) -> TwoHandDetection:
         if len(hands) != 2:
@@ -63,7 +58,6 @@ class TwoHandRecognizer:
             if abs(delta) >= MOTION_DISTANCE_THRESHOLD:
                 motion = "apart" if delta > 0 else "together"
         self._previous_distance = distance
-        self._previous_timestamp = self._clock()
 
         both_open = first.pose == "Open Palm" and second.pose == "Open Palm"
         both_fists = first.pose == "Fist" and second.pose == "Fist"

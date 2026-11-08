@@ -3,22 +3,49 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from handwave.actions.action_definition import ActionDefinition
+from handwave import platforms
 from handwave.services.startup_manager import WindowsStartupManager
 from handwave.config.atomic_write import atomic_replace
 from handwave.config.gesture_config import (
-    ACTIONS,
     GESTURES,
     complete_bindings,
     complete_enabled,
 )
 
 SCHEMA_VERSION = 3
+
+
+def normalize_app_names(value: object) -> tuple[str, ...]:
+    """Validate a list of program names, e.g. ``["obs64.exe", "Zoom"]``.
+
+    Names are lower-cased, paths are reduced to the file name, and duplicates
+    are dropped (order kept). On Windows ``.exe`` is added when missing; on
+    macOS app names such as ``zoom.us`` or ``OBS`` are kept as given.
+    """
+    windows = not platforms.is_macos()
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+        raise ValueError("pause_for_apps must be a list of program names")
+    names: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("pause_for_apps entries must be program names")
+        name = item.strip().strip('"').replace("/", "\\").rsplit("\\", 1)[-1].lower()
+        if not name:
+            continue
+        if windows and not name.endswith(".exe"):
+            name += ".exe"
+        if len(name) > 128 or any(char in name for char in '<>:"|?*\0'):
+            raise ValueError(f"Invalid program name: {item!r}")
+        if name not in names:
+            names.append(name)
+    if len(names) > 32:
+        raise ValueError("pause_for_apps may list at most 32 programs")
+    return tuple(names)
 
 
 @dataclass(frozen=True)
@@ -56,6 +83,17 @@ class AppSettings:
     cursor_assist_overlay_enabled: bool = True
     cursor_assist_overlay_size: int = 22
     cursor_assist_overlay_opacity: float = 0.72
+    # Launch behaviour, hands-free activation, motion and auto-pause.
+    start_camera_on_launch: bool = True
+    double_clap_enabled: bool = True
+    reduce_motion: bool = False
+    pause_when_camera_in_use: bool = True
+    pause_during_calls: bool = True
+    pause_for_apps: tuple[str, ...] = ()
+    # Performance: lite MediaPipe model (~35% faster, ~3 pts less accurate on
+    # HaGRID) and the developer text overlay on the camera preview.
+    fast_hand_model: bool = False
+    debug_overlay: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.camera_index, int) or isinstance(self.camera_index, bool) or self.camera_index < 0:
@@ -136,6 +174,11 @@ class AppSettings:
             raise ValueError("cursor_assist_overlay_size must be between 18 and 24")
         if not isinstance(self.cursor_assist_overlay_opacity, (int, float)) or not 0.2 <= self.cursor_assist_overlay_opacity <= 1.0:
             raise ValueError("cursor_assist_overlay_opacity must be between 0.2 and 1")
+        for name in ("start_camera_on_launch", "double_clap_enabled", "reduce_motion",
+                     "pause_when_camera_in_use", "pause_during_calls", "fast_hand_model", "debug_overlay"):
+            if not isinstance(getattr(self, name), bool):
+                raise ValueError(f"{name} must be a boolean")
+        object.__setattr__(self, "pause_for_apps", normalize_app_names(self.pause_for_apps))
 
 
 class SettingsManager:
@@ -144,12 +187,8 @@ class SettingsManager:
     # Always use the current device/user profile, including source checkouts.
     # Keeping mutable calibration beside installed code breaks on read-only
     # locations and loses settings when a checkout is replaced.
-    DEFAULT_PATH = (
-        Path(os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Roaming"))
-        / "HandWave"
-        / "config"
-        / "settings.json"
-    )
+    # %APPDATA%\HandWave on Windows; ~/Library/Application Support/HandWave on macOS.
+    DEFAULT_PATH = platforms.config_dir() / "settings.json"
     LEGACY_SOURCE_PATH = Path(__file__).with_name("settings.json")
     FIELDS = set(AppSettings.__dataclass_fields__)
 

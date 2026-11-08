@@ -54,8 +54,8 @@ python -m benchmarks.benchmark_startup
 Measures, in a fresh subprocess, the cost of importing up to
 `handwave.ui.main_window`, constructing `QApplication` + `SettingsManager` +
 `MainWindow`, and calling `window.show()` — and explicitly reports whether
-`mediapipe` was imported before the UI became visible (it should not be; see
-[development.md](development.md#startup-performance-discipline)). Set
+`mediapipe` was imported before the UI became visible (it shouldn't be; see
+[development.md](development.md#things-that-are-easy-to-break)). Set
 `HANDWAVE_STARTUP_PROFILE=1` when running the real application for a
 checkpoint-by-checkpoint timing log.
 
@@ -64,3 +64,14 @@ checkpoint-by-checkpoint timing log.
 - Results depend on scheduler timing; treat them as directional, not absolute performance certification.
 - Neither benchmark exercises MediaPipe or real camera/microphone hardware — recognition-loop FPS and latency on real hardware require manual, on-device measurement (see [troubleshooting.md](troubleshooting.md)).
 - Dropped frames under the latest-frame strategy are a deliberate overload response, not a bug.
+
+## Real-image accuracy benchmark (HaGRID)
+
+`benchmarks/benchmark_hagrid.py` runs the real `GestureEngine` over annotated
+HaGRID photos and reports per-gesture accuracy, false triggers, natural and
+synthetic lighting robustness, and per-frame latency. The dataset is not in
+the repository; see
+[benchmarks/HAGRID_BENCHMARK_REPORT.md](benchmarks/HAGRID_BENCHMARK_REPORT.md)
+for download steps, licence terms, results and analysis, and
+[benchmarks/hagrid-results.md](benchmarks/hagrid-results.md) for the
+generated tables.

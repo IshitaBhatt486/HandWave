@@ -20,7 +20,7 @@ def _open_palm_points():
 
 def _fist_points():
     points = [_point(0.5, 0.9) for _ in range(21)]
-    points[2:5] = [_point(0.42, 0.72), _point(0.30, 0.72), _point(0.30, 0.82)]
+    points[2:5] = [_point(0.42, 0.80), _point(0.45, 0.76), _point(0.48, 0.73)]  # tucked across the palm
     for offset, x in zip((5, 9, 13, 17), (0.35, 0.45, 0.55, 0.65)):
         points[offset : offset + 4] = [
             _point(x, 0.72), _point(x, 0.58), _point(x + 0.10, 0.58), _point(x + 0.14, 0.68)

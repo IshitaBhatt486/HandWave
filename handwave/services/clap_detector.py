@@ -47,11 +47,6 @@ class MicrophoneStatus:
     error: str | None = None
 
 
-@dataclass(frozen=True)
-class CalibrationResult:
-    ambient_rms: float
-    threshold: float
-    sample_count: int
 
 
 class ClapDetector(QObject):
@@ -69,8 +64,6 @@ class ClapDetector(QObject):
     stopped = pyqtSignal()
     stream_fault = pyqtSignal(str)
 
-    MIN_CLAP_SEPARATION = 0.12
-    MAX_CLAP_SEPARATION = 1.0
     REFRACTORY_INTERVAL = 0.08
 
     def __init__(
@@ -100,9 +93,13 @@ class ClapDetector(QObject):
         self._stream = None
         self._last_input_level = 0.0
         self._last_error: str | None = None
-        self._calibration_samples: list[float] = []
-        self._calibrating = False
         self._last_rms = 0.0
+        # Loudest block (and its RMS) plus the RMS sum since the last
+        # ``consume_levels`` call, so a slower UI poll cannot miss a short clap.
+        self._poll_peak = 0.0
+        self._poll_peak_rms = 0.0
+        self._poll_rms_sum = 0.0
+        self._poll_blocks = 0
         self._device_name: str | None = None
         self._sample_rate: float | None = None
         self._stream_status = "stopped"
@@ -144,6 +141,19 @@ class ClapDetector(QObject):
             callback_count=self._callback_count,
             error=self._last_error,
         )
+
+    def consume_levels(self) -> tuple[float, float, float] | None:
+        """Return ``(max_peak, rms_of_that_block, mean_rms)`` since the last call.
+
+        Returns ``None`` when no audio block arrived in between. Only scalar
+        levels are kept; audio samples are never retained.
+        """
+        if self._poll_blocks == 0:
+            return None
+        levels = (self._poll_peak, self._poll_peak_rms, self._poll_rms_sum / self._poll_blocks)
+        self._poll_peak = self._poll_peak_rms = self._poll_rms_sum = 0.0
+        self._poll_blocks = 0
+        return levels
 
     def configure(
         self, *, device: int | None, min_peak: float, noise_multiplier: float, rms_threshold: float = 0.0,
@@ -273,7 +283,12 @@ class ClapDetector(QObject):
     def _report_stream_error(self, exc: Exception, context: str) -> None:
         message = str(exc)
         if "permission" in message.lower() or "access" in message.lower():
-            message += ". Check Windows Settings > Privacy & security > Microphone and allow desktop apps."
+            from handwave import platforms
+
+            if platforms.is_macos():
+                message += ". Check System Settings > Privacy & Security > Microphone and allow HandWave (or your terminal)."
+            else:
+                message += ". Check Windows Settings > Privacy & security > Microphone and allow desktop apps."
         self._last_error = message
         logger.exception("%s: %s", context, message)
         self.error.emit(message)
@@ -315,30 +330,6 @@ class ClapDetector(QObject):
         self.stop()
         self._schedule_recovery()
 
-    def begin_calibration(self) -> None:
-        """Start collecting ambient-noise samples; call while the room is at rest."""
-        self._calibrating = True
-        self._calibration_samples = []
-
-    def feed_calibration_sample(self, samples) -> None:
-        """Record one ambient audio block. Never triggers a clap while calibrating."""
-        audio = np.asarray(samples, dtype=np.float32).reshape(-1)
-        if audio.size == 0:
-            return
-        rms = float(np.sqrt(np.mean(audio * audio)))
-        self._calibration_samples.append(rms)
-
-    def finish_calibration(self, margin: float = 2.5) -> CalibrationResult:
-        """Derive a baseline noise floor and threshold from the recorded samples."""
-        self._calibrating = False
-        if not self._calibration_samples:
-            raise ValueError("No calibration samples were recorded")
-        ambient = sum(self._calibration_samples) / len(self._calibration_samples)
-        self._noise_floor = ambient
-        self.noise_multiplier = float(margin)
-        threshold = max(self.min_peak, ambient * margin)
-        return CalibrationResult(ambient, threshold, len(self._calibration_samples))
-
     def _audio_callback(self, samples, frames, timing, status) -> None:
         self._callback_count += 1
         self._last_callback_time = self._clock()
@@ -371,12 +362,12 @@ class ClapDetector(QObject):
         rms = float(np.sqrt(np.mean(audio * audio)))
         self._last_input_level = peak
         self._last_rms = rms
+        if peak >= self._poll_peak:
+            self._poll_peak, self._poll_peak_rms = peak, rms
+        self._poll_rms_sum += rms
+        self._poll_blocks += 1
         if self._callback_count == 1 or self._callback_count % 200 == 0:
             logger.debug("Microphone audio received: callbacks=%d peak=%.5f rms=%.5f threshold=%.5f", self._callback_count, peak, rms, self.threshold)
-
-        if self._calibrating:
-            self._calibration_samples.append(rms)
-            return False
 
         # A clap must be both sharp and materially above the locally observed
         # noise floor. The small floor only rejects sensor quantization noise;

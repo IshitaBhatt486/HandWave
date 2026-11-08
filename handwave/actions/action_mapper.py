@@ -12,7 +12,7 @@ from handwave.actions.action_definition import ActionDefinition
 from handwave.actions.action_executor import ActionExecutor
 from handwave.config.gesture_config import (
     DEFAULT_ENABLED_GESTURES,
-    DEFAULT_GESTURE_BINDINGS,
+    default_gesture_bindings,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class ActionMapper:
         if program_launcher is not None:
             executor_options["program_launcher"] = program_launcher
         self._executor = executor or ActionExecutor(**executor_options)
-        source_bindings = DEFAULT_GESTURE_BINDINGS if gesture_bindings is None else gesture_bindings
+        source_bindings = default_gesture_bindings() if gesture_bindings is None else gesture_bindings
         self._gesture_bindings = self._normalize_bindings(source_bindings)
         self._enabled_gestures = (
             DEFAULT_ENABLED_GESTURES.copy()

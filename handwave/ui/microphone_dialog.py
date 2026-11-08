@@ -5,6 +5,8 @@ import statistics
 from enum import IntEnum
 
 from PyQt6.QtCore import QTimer
+
+from handwave import platforms
 from PyQt6.QtWidgets import QDialog, QFormLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout
 
 
@@ -18,14 +20,20 @@ class MicrophoneDialog(QDialog):
     def __init__(self, detector, settings_manager=None, parent=None) -> None:
         super().__init__(parent); self.detector, self.settings_manager = detector, settings_manager
         self.setWindowTitle("HandWave Microphone Calibration")
+        self.setMinimumWidth(420)
         self.step_label, self.microphone, self.health = QLabel(), QLabel(), QLabel()
         self.rms, self.peak, self.confidence, self.sensitivity = QLabel(), QLabel(), QLabel(), QLabel()
         self.instructions = QLabel("Press Recalibrate to adapt HandWave to this microphone."); self.instructions.setWordWrap(True)
         self.progress, self.recalibrate, self.reset = QProgressBar(), QPushButton("Recalibrate"), QPushButton("Reset Calibration")
-        self.recalibrate.clicked.connect(self.start_wizard); self.reset.clicked.connect(self.reset_calibration)
-        form = QFormLayout()
+        self.close_button = QPushButton("Close")
+        self.recalibrate.clicked.connect(self.start_wizard); self.reset.clicked.connect(self.reset_calibration); self.close_button.clicked.connect(self.accept)
+        form = QFormLayout(); form.setHorizontalSpacing(28); form.setVerticalSpacing(10)
         for title, value in (("Wizard",self.step_label),("Microphone",self.microphone),("Health",self.health),("Live RMS",self.rms),("Live peak",self.peak),("Confidence",self.confidence),("Sensitivity",self.sensitivity)): form.addRow(title,value)
-        layout=QVBoxLayout(self); layout.addLayout(form); layout.addWidget(self.instructions); layout.addWidget(self.progress); layout.addWidget(self.recalibrate); layout.addWidget(self.reset)
+        self.progress.setTextVisible(False); self.progress.setFixedHeight(3)
+        title = QLabel("Microphone"); title.setObjectName("cardTitle")
+        subtitle = QLabel("Double-clap to turn recognition on or off."); subtitle.setObjectName("cardSubtitle")
+        layout=QVBoxLayout(self); layout.setContentsMargins(30, 26, 30, 26); layout.setSpacing(14)
+        layout.addWidget(title); layout.addWidget(subtitle); layout.addSpacing(10); layout.addLayout(form); layout.addSpacing(6); layout.addWidget(self.instructions); layout.addWidget(self.progress); layout.addWidget(self.recalibrate); layout.addWidget(self.reset); layout.addWidget(self.close_button)
         self._step, self._elapsed, self._noise, self._claps, self._last_callback, self._last_clap_callback, self._confidence = Step.IDLE, 0, [], [], 0, -10, 0
         self._timer=QTimer(self); self._timer.setInterval(100); self._timer.timeout.connect(self._tick); self._timer.start()
         if hasattr(detector, "double_clap"):
@@ -34,6 +42,21 @@ class MicrophoneDialog(QDialog):
             detector.error.connect(self._microphone_error)
         if not detector.is_listening: detector.start()
         self._refresh()
+
+    def done(self, result: int) -> None:
+        """Release the polling timer and detector connections on close.
+
+        The dialog is parented to the main window, so without this every
+        closed dialog would keep polling and receiving double-clap signals.
+        """
+        self._timer.stop()
+        for signal, slot in (("double_clap", self._test_passed), ("error", self._microphone_error)):
+            if hasattr(self.detector, signal):
+                try:
+                    getattr(self.detector, signal).disconnect(slot)
+                except (TypeError, RuntimeError):
+                    pass
+        super().done(result)
 
     def start_wizard(self) -> None:
         if not self.detector.is_listening:
@@ -55,17 +78,21 @@ class MicrophoneDialog(QDialog):
         s=self.detector.status()
         if s.callback_count != self._last_callback:
             self._last_callback=s.callback_count
-            if self._step == Step.NOISE: self._noise.append(s.rms)
-            elif self._step == Step.CLAPS and self._is_clap(s): self._claps.append((s.input_level,s.rms)); self._last_clap_callback=s.callback_count; self.progress.setValue(len(self._claps))
+            # Prefer the loudest block since the last poll: audio blocks arrive
+            # roughly every 23 ms, far faster than this 100 ms UI timer.
+            levels = self.detector.consume_levels() if hasattr(self.detector, "consume_levels") else None
+            peak, peak_rms, mean_rms = levels if levels else (s.input_level, s.rms, s.rms)
+            if self._step == Step.NOISE: self._noise.append(mean_rms)
+            elif self._step == Step.CLAPS and self._is_clap(peak, peak_rms, s.callback_count): self._claps.append((peak,peak_rms)); self._last_clap_callback=s.callback_count; self.progress.setValue(len(self._claps))
         if self._step == Step.NOISE:
             self._elapsed += self._timer.interval(); self.progress.setValue(self._elapsed)
             if self._elapsed >= self.NOISE_DURATION_MS: self._start_claps()
         elif self._step == Step.CLAPS and len(self._claps) >= self.REQUIRED_CLAPS: self._save_profile()
         self._refresh(s)
 
-    def _is_clap(self,s) -> bool:
+    def _is_clap(self, peak: float, rms: float, callback_count: int) -> bool:
         noise=max(statistics.fmean(self._noise) if self._noise else .002,.002)
-        return s.input_level >= max(.02,noise*3) and s.rms >= noise*1.2 and s.callback_count-self._last_clap_callback >= 4
+        return peak >= max(.02,noise*3) and rms >= noise*1.2 and callback_count-self._last_clap_callback >= 4
 
     def _start_claps(self) -> None:
         self._step=Step.CLAPS; self.progress.setRange(0,self.REQUIRED_CLAPS); self.progress.setValue(0)
@@ -102,6 +129,6 @@ class MicrophoneDialog(QDialog):
 
     def _refresh(self,s=None) -> None:
         s=s or self.detector.status(); names={Step.IDLE:"Ready",Step.NOISE:"1. Background noise",Step.CLAPS:"2. Five claps",Step.TEST:"4. Test double-clap"}
-        self.step_label.setText(names[self._step]); self.microphone.setText(s.device or "Windows default"); self.rms.setText(f"{s.rms:.5f}"); self.peak.setText(f"{s.input_level:.5f}")
+        self.step_label.setText(names[self._step]); self.microphone.setText(s.device or f"{platforms.os_label()} default"); self.rms.setText(f"{s.rms:.5f}"); self.peak.setText(f"{s.input_level:.5f}")
         self.confidence.setText(f"{self._confidence}%"); self.sensitivity.setText(f"Peak {getattr(self.detector,'min_peak',.02):.3f}  •  RMS {getattr(self.detector,'rms_threshold',0):.3f}")
         self.health.setText("Connected • Listening" if s.available and s.stream_status in {"running","degraded"} else "Microphone error" if s.error else "No microphone detected")

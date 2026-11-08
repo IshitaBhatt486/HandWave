@@ -1,6 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
 
 from handwave.config.profile_manager import ProfileManager
 from handwave.config.settings_manager import AppSettings
@@ -139,7 +138,7 @@ def test_disabling_automatic_switching_keeps_explicit_selection(tmp_path):
         tmp_path, [ForegroundAppInfo("chrome.exe", None)], enabled=False
     )
     spotify = manager.create_profile("Spotify", app_executable="spotify.exe")
-    chrome = manager.create_profile("Chrome", app_executable="chrome.exe")
+    manager.create_profile("Chrome", app_executable="chrome.exe")  # matches, but auto-switch is off
     manager.set_active_profile(spotify.profile_id)
 
     event = switcher.poll()
