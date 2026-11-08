@@ -32,6 +32,16 @@ def get_foreground_app() -> ForegroundAppInfo:
     performed (non-Windows platform, no foreground window, access denied),
     rather than raising.
     """
+    from handwave import platforms
+
+    if platforms.is_macos():
+        try:
+            from handwave.platforms.macos import frontmost_app
+
+            return ForegroundAppInfo(*frontmost_app())
+        except Exception:  # experimental macOS path: never break profile switching
+            logger.debug("macOS foreground lookup failed", exc_info=True)
+            return ForegroundAppInfo(None, None)
     try:
         user32 = ctypes.windll.user32
         kernel32 = ctypes.windll.kernel32

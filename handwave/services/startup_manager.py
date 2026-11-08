@@ -1,4 +1,4 @@
-"""Current-user Windows Startup folder integration."""
+"""Start-at-login integration: Windows Startup folder, macOS LaunchAgent."""
 
 from __future__ import annotations
 
@@ -70,3 +70,67 @@ class WindowsStartupManager:
 
     def set_enabled(self, enabled: bool) -> None:
         self.enable() if enabled else self.disable()
+
+
+class MacLaunchAgentManager:
+    """Start HandWave at login on macOS via a per-user LaunchAgent (EXPERIMENTAL).
+
+    Writes ``~/Library/LaunchAgents/com.handwave.app.plist``. launchd reads it
+    at the next login; no admin rights are needed. Same interface as
+    :class:`WindowsStartupManager`.
+    """
+
+    LABEL = "com.handwave.app"
+
+    def __init__(
+        self,
+        agents_folder: str | Path | None = None,
+        executable: str | Path | None = None,
+        project_root: str | Path | None = None,
+    ) -> None:
+        self.agents_folder = Path(agents_folder) if agents_folder is not None else Path.home() / "Library" / "LaunchAgents"
+        # Plain strings: these are written verbatim into a macOS plist.
+        self.executable = str(executable) if executable is not None else sys.executable
+        self.project_root = str(project_root) if project_root is not None else str(Path(__file__).resolve().parents[2])
+
+    @property
+    def launcher_path(self) -> Path:
+        return self.agents_folder / f"{self.LABEL}.plist"
+
+    @property
+    def is_enabled(self) -> bool:
+        return self.launcher_path.is_file()
+
+    def program_arguments(self) -> list[str]:
+        if getattr(sys, "frozen", False):
+            return [self.executable]
+        return [self.executable, "-m", "handwave.main"]
+
+    def enable(self) -> None:
+        import plistlib
+
+        self.agents_folder.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "Label": self.LABEL,
+            "ProgramArguments": self.program_arguments(),
+            "RunAtLoad": True,
+            "ProcessType": "Interactive",
+        }
+        if not getattr(sys, "frozen", False):
+            payload["WorkingDirectory"] = self.project_root
+        temporary = self.launcher_path.with_suffix(".plist.tmp")
+        temporary.write_bytes(plistlib.dumps(payload))
+        atomic_replace(temporary, self.launcher_path)
+
+    def disable(self) -> None:
+        self.launcher_path.unlink(missing_ok=True)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.enable() if enabled else self.disable()
+
+
+def default_startup_manager():
+    """The start-at-login integration for this OS."""
+    from handwave import platforms
+
+    return MacLaunchAgentManager() if platforms.is_macos() else WindowsStartupManager()
