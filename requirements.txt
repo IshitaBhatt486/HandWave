@@ -1,0 +1,11 @@
+PyQt6>=6.7,<7
+opencv-python>=4.10,<5
+mediapipe>=0.10.14,<=0.10.21
+numpy>=1.26,<3
+PyAutoGUI>=0.9.54,<1
+sounddevice>=0.5,<1
+keyboard>=0.13.5,<1; sys_platform == "win32"
+# macOS (experimental)
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"
+pyobjc-framework-AVFoundation>=10.0; sys_platform == "darwin"

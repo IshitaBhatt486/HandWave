@@ -1,9 +1,9 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if not exist ".venv\Scripts\python.exe" (
-    echo Virtual environment not found. Create .venv and install handwave\requirements.txt first.
+    echo Virtual environment not found. Run scripts\setup.cmd dev first.
     exit /b 1
 )
 

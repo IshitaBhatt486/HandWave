@@ -1,9 +1,9 @@
 """Replay a recorded landmark sequence through the real recognition pipeline.
 
 Usage:
-    python -m tools.replay_gesture path/to/sequence.json
-    python -m tools.replay_gesture path/to/sequence.json --speed 2
-    python -m tools.replay_gesture path/to/sequence.json --step
+    python scripts/replay_gesture.py path/to/sequence.json
+    python scripts/replay_gesture.py path/to/sequence.json --speed 2
+    python scripts/replay_gesture.py path/to/sequence.json --step
 
 This exercises no camera and no MediaPipe detection step (there is no frame
 to detect from) — it feeds already-recorded, normalized hand landmarks into
@@ -14,7 +14,11 @@ camera pipeline calls after MediaPipe extraction.
 from __future__ import annotations
 
 import argparse
+import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from handwave.gestures.gesture_engine import GestureEngine
 from handwave.gestures.landmark_replay import LandmarkReplayer

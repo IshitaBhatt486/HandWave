@@ -1,0 +1,38 @@
+# Tool configuration. Dependencies are in requirements.txt / requirements-dev.txt.
+
+[tool.pytest.ini_options]
+minversion = "8.2"
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--junitxml=test-results/junit.xml",
+    "--cov=handwave",
+    "--cov-config=pyproject.toml",
+    "--cov-report=term-missing",
+    "--cov-report=xml:test-results/coverage.xml",
+    "--cov-report=html:test-results/coverage-html",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: isolated component behaviour with mocked external boundaries",
+    "integration: several application components working together",
+    "ui: PyQt widget, signal and user-interaction behaviour",
+    "benchmark: deterministic performance regression benchmark",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["handwave"]
+omit = ["handwave/__init__.py", "handwave/*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+precision = 1
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:", "raise NotImplementedError"]
+
+[tool.coverage.html]
+directory = "test-results/coverage-html"
+
+[tool.coverage.xml]
+output = "test-results/coverage.xml"
