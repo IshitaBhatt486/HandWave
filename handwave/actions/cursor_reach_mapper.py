@@ -32,11 +32,18 @@ class CursorReach:
 
 
 def normalize_reach(value: float, lower: float, center: float, upper: float) -> float:
-    """Map lower/center/upper to 0/0.5/1, preserving asymmetric reach."""
+    """Map lower/center/upper to 0/0.5/1, preserving asymmetric reach.
+
+    A side with no usable reach (a provisional profile mid-calibration, where
+    the captured limit equals or crosses the center) maps to the center
+    instead of dividing by zero.
+    """
     if value <= center:
-        normalized = 0.5 * (value - lower) / (center - lower)
+        span = center - lower
+        normalized = 0.5 if span <= 0 else 0.5 * (value - lower) / span
     else:
-        normalized = 0.5 + 0.5 * (value - center) / (upper - center)
+        span = upper - center
+        normalized = 0.5 if span <= 0 else 0.5 + 0.5 * (value - center) / span
     return max(0.0, min(1.0, normalized))
 
 

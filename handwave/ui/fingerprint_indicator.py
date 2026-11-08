@@ -92,9 +92,24 @@ class FingerprintIndicator(QWidget):
         self._timer.start()
         self.update()
 
+    def set_source_size(self, width: int, height: int) -> None:
+        """Declare the camera frame size when the preview crops it to fill (cover fit)."""
+        self._source_size = (width, height) if width > 0 and height > 0 else None
+
     def map_normalized_point(self, x: float, y: float) -> QPointF:
-        """Map normalized camera coordinates into Qt logical preview pixels."""
-        return QPointF(max(0.0, min(1.0, x)) * self.width(), max(0.0, min(1.0, y)) * self.height())
+        """Map normalized camera coordinates into Qt logical preview pixels.
+
+        Without a source size the frame is assumed to span the preview. With
+        one, the frame is scaled to cover the preview and centre-cropped,
+        matching ``MainWindow.update_frame``.
+        """
+        x, y = max(0.0, min(1.0, x)), max(0.0, min(1.0, y))
+        source = getattr(self, "_source_size", None)
+        if source is None:
+            return QPointF(x * self.width(), y * self.height())
+        scale = max(self.width() / source[0], self.height() / source[1])
+        shown_w, shown_h = source[0] * scale, source[1] * scale
+        return QPointF(x * shown_w - (shown_w - self.width()) / 2, y * shown_h - (shown_h - self.height()) / 2)
 
     def sync_geometry(self) -> None:
         self.setGeometry(self.parentWidget().rect())

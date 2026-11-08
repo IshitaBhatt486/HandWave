@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import QFrame, QGridLayout, QLabel, QVBoxLayout, QWidget
-from handwave.ui.gesture_icons import gesture_text
+from handwave.ui.theme import set_tone
 
 
 class DiagnosticsPage(QWidget):
@@ -39,14 +39,17 @@ class DiagnosticsPage(QWidget):
         heading.addWidget(self.live_status, 0, 1)
         heading.addWidget(subtitle, 1, 0, 1, 2)
         heading.setColumnStretch(0, 1)
+        heading.setVerticalSpacing(4)
 
         metric_grid = QGridLayout()
-        metric_grid.setSpacing(14)
+        metric_grid.setHorizontalSpacing(40)
+        metric_grid.setVerticalSpacing(30)
         for index, (key, label, initial, caption) in enumerate(self.METRICS):
             card = QFrame()
             card.setObjectName("metricCard")
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(18, 16, 18, 16)
+            card_layout.setContentsMargins(0, 16, 0, 0)
+            card_layout.setSpacing(4)
             name = QLabel(label.upper())
             name.setObjectName("metricName")
             value = QLabel(initial)
@@ -62,7 +65,8 @@ class DiagnosticsPage(QWidget):
         gesture_card = QFrame()
         gesture_card.setObjectName("metricCard")
         gesture_layout = QVBoxLayout(gesture_card)
-        gesture_layout.setContentsMargins(20, 18, 20, 18)
+        gesture_layout.setContentsMargins(0, 18, 0, 0)
+        gesture_layout.setSpacing(4)
         gesture_name = QLabel("CURRENT GESTURE")
         gesture_name.setObjectName("metricName")
         self.current_gesture = QLabel("No gesture detected")
@@ -74,8 +78,8 @@ class DiagnosticsPage(QWidget):
         gesture_layout.addWidget(self.gesture_detail)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(26, 24, 26, 26)
-        layout.setSpacing(18)
+        layout.setContentsMargins(40, 30, 40, 32)
+        layout.setSpacing(34)
         layout.addLayout(heading)
         layout.addLayout(metric_grid)
         layout.addWidget(gesture_card)
@@ -92,12 +96,9 @@ class DiagnosticsPage(QWidget):
     def update_gesture(self, raw: str, stable: str) -> None:
         current = stable if stable != "Unknown" else raw
         self.current_gesture.setText(
-            "No gesture detected" if current == "Unknown" else gesture_text(current)
+            "No gesture detected" if current == "Unknown" else current
         )
         self.gesture_detail.setText(f"Raw  {raw}   •   Stable  {stable}")
-
-    def update_microphone(self, status: object) -> None:
-        """Retain the diagnostics hook without exposing microphone/clap controls."""
 
     def update_cursor_overlay(self, state: object, metrics: object) -> None:
         """Show overlay-local measurements; no pipeline worker is sampled here."""
@@ -108,6 +109,6 @@ class DiagnosticsPage(QWidget):
 
     def set_pipeline_active(self, active: bool) -> None:
         self.live_status.setText("●  LIVE" if active else "●  PAUSED")
-        self.live_status.setStyleSheet("color: #10b981;" if active else "")
+        set_tone(self.live_status, "live" if active else "idle")
         if not active:
             self._values["threads"].setText("0")

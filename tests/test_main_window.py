@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from PyQt6.QtCore import QObject, QSettings, QTimer, Qt, pyqtSignal
 from PyQt6.QtWidgets import QBoxLayout
 
@@ -36,32 +38,64 @@ class FakeClapDetector(QObject):
         self.stop = MagicMock()
 
 
-def test_camera_workspace_displays_the_on_device_privacy_notice(qtbot):
-    window = MainWindow()
+
+
+
+
+
+
+def test_dashboard_shows_microphone_and_cursor_calibration_controls(qtbot):
+    window = MainWindow(camera_manager=FakeCamera(), clap_detector=FakeClapDetector())
+    qtbot.addWidget(window)
+    window.show()
+
+    for widget in (window.cursor_calibration_button, window.microphone_button, window.microphone_status):
+        assert widget.isVisible()
+    assert window.cursor_calibration_button.receivers(window.cursor_calibration_button.clicked) == 1
+    assert window.microphone_button.receivers(window.microphone_button.clicked) == 1
+    window.exit_application()
+
+
+def test_double_clap_is_ignored_while_microphone_calibration_is_open(qtbot):
+    camera = FakeCamera()
+    clap = FakeClapDetector()
+    window = MainWindow(camera_manager=camera, clap_detector=clap)
     qtbot.addWidget(window)
 
-    assert window.privacy_notice.text() == (
-        "None of your video data leaves your device — it is processed on-device :)"
-    )
+    window.microphone_dialog = object()
+    clap.double_clap.emit()
+    camera.start_camera.assert_not_called()
+
+    window.microphone_dialog = None
+    clap.double_clap.emit()
+    camera.start_camera.assert_called_once()
+    window.exit_application()
 
 
-def test_dashboard_starts_in_dark_mode_and_exposes_the_help_guide(qtbot):
+def test_cursor_fingertips_are_mirrored_to_the_users_point_of_view(qtbot):
     window = MainWindow(camera_manager=FakeCamera())
     qtbot.addWidget(window)
+    window._feed_cursor_assist = MagicMock()
 
-    assert window._theme_mode == "dark"
-    assert window.help_button.text() == "?  Help"
-    assert window.help_button.accessibleName() == "Help and user guide"
+    # A hand on the user's left appears on the right of an unmirrored webcam frame.
+    window._feed_cursor_calibration([(0.8, 0.3)])
+
+    (fingertips,), _ = window._feed_cursor_assist.call_args
+    assert fingertips == [(pytest.approx(0.2), 0.3)]
+    window.exit_application()
 
 
-def test_dashboard_hides_cursor_calibration_without_removing_its_workflow(qtbot):
-    window = MainWindow(camera_manager=FakeCamera())
+def test_cursor_calibration_starts_camera_and_restores_it_afterwards(qtbot, tmp_path):
+    camera = FakeCamera()
+    window = MainWindow(camera_manager=camera, settings_manager=SettingsManager(tmp_path / "settings.json"))
     qtbot.addWidget(window)
+    QTimer.singleShot(0, lambda: window.cursor_calibration_dialog.reject())
 
-    assert window.cursor_calibration_button.isHidden()
-    assert window.cursor_calibration_button.receivers(
-        window.cursor_calibration_button.clicked
-    ) == 1
+    window.open_cursor_calibration()
+
+    camera.start_camera.assert_called_once()
+    camera.stop_camera.assert_called_once()
+    window.exit_application()
 
 
 def test_recognition_button_toggles_start_stop_and_close_to_tray(qtbot):
@@ -387,7 +421,7 @@ def test_confidence_display_tracks_recognition_signal(qtbot):
 
     camera.confidence_updated.emit(0.873)
 
-    assert window.confidence_bar.value() == 87
+    qtbot.waitUntil(lambda: window.confidence_bar.value() == 87, timeout=1000)  # the bar glides
     assert window.confidence_label.text() == "Confidence  87%"
     window.exit_application()
 
@@ -448,8 +482,10 @@ def test_status_animation_and_tray_mode_work_together(qtbot):
     window = MainWindow(camera_manager=camera)
     qtbot.addWidget(window)
     window.show()
+    window.start_camera()
+    assert window._status_pulse.state().name == "Running"  # breathes while starting
     camera.started.emit()
-    assert window._status_pulse.state().name == "Running"
+    assert window._status_pulse.state().name == "Stopped"  # steady once live: no idle repaints
 
     window.close()
     assert not window.isVisible()
@@ -491,3 +527,14 @@ def test_accessibility_names_and_keyboard_shortcuts(qtbot):
     window.diagnostics_action.trigger()
     assert window.pages.currentIndex() == 1
     window.exit_application()
+
+
+def test_help_dialog_shows_licence_notice(qtbot):
+    from PyQt6.QtWidgets import QLabel
+
+    from handwave.ui.help_dialog import HelpDialog
+
+    dialog = HelpDialog()
+    qtbot.addWidget(dialog)
+    text = " ".join(label.text() for label in dialog.findChildren(QLabel))
+    assert "GNU GPL v3" in text and "NO WARRANTY" in text and "github.com/IshitaBhatt486/HandWave" in text

@@ -48,3 +48,12 @@ def test_stateful_mapper_applies_configured_smoothing(reach):
     assert mapper.map(.5, .5, 0, 1000, 1000) == (500, 500)
     # A high-smoothing step remains between center and the requested right edge.
     assert 500 < mapper.map(.8, .5, 1/30, 1000, 1000)[0] < 999
+
+
+def test_normalize_reach_handles_degenerate_provisional_spans():
+    from handwave.actions.cursor_reach_mapper import normalize_reach
+
+    # Mid-calibration a reach limit can equal or cross the center.
+    assert normalize_reach(0.4, 0.5, 0.5, 0.9) == 0.5
+    assert normalize_reach(0.7, 0.1, 0.5, 0.5) == 0.5
+    assert normalize_reach(0.7, 0.1, 0.5, 0.3) == 0.5

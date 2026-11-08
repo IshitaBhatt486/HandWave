@@ -90,3 +90,75 @@ def test_validation_preview_does_not_attempt_a_missing_capture_target(qtbot, tmp
     dialog._render()
     dialog.preview.show()
     qtbot.wait(10)
+
+
+def test_missed_capture_offers_retry_step_instead_of_dead_end(qtbot, tmp_path):
+    dialog = CursorCalibrationDialog(SettingsManager(tmp_path / "settings.json"))
+    qtbot.addWidget(dialog)
+    dialog.start_calibration()
+    dialog._remaining_ms = dialog._timer.interval()
+
+    dialog._advance()  # no fingertips were captured
+
+    assert dialog._step == CalibrationStep.CENTER
+    assert not dialog.retry_step.isHidden()
+    assert "Retry Step" in dialog.instruction.text()
+
+    dialog._retry_step()
+    assert dialog._timer.isActive()
+    assert dialog.retry_step.isHidden()
+    dialog._timer.stop()
+
+
+def _capture(dialog, x, y):
+    dialog._samples = [(x, y)] * 5
+    dialog._remaining_ms = dialog._timer.interval()
+    dialog._advance()
+
+
+def test_full_reach_capture_reaches_validation(qtbot, tmp_path):
+    dialog = CursorCalibrationDialog(SettingsManager(tmp_path / "settings.json"))
+    qtbot.addWidget(dialog)
+    dialog.start_calibration()
+    for point in ((.5, .5), (.2, .5), (.8, .5), (.5, .2), (.5, .8)):
+        _capture(dialog, *point)
+
+    assert dialog._step == CalibrationStep.VALIDATION
+    assert dialog._values == _profile()
+    assert not dialog.redo.isHidden()
+
+
+def test_reversed_reach_returns_to_start_with_explanation(qtbot, tmp_path):
+    dialog = CursorCalibrationDialog(SettingsManager(tmp_path / "settings.json"))
+    qtbot.addWidget(dialog)
+    dialog.start_calibration()
+    # "Left" captured to the right of center, as with an unmirrored camera.
+    for point in ((.5, .5), (.8, .5), (.2, .5), (.5, .2), (.5, .8)):
+        _capture(dialog, *point)
+
+    assert dialog._step == CalibrationStep.WELCOME
+    assert "either side of the center" in dialog.instruction.text()
+    assert not dialog.start.isHidden()
+
+
+def test_preview_renders_every_step_without_painter_type_errors(qtbot, tmp_path):
+    dialog = CursorCalibrationDialog(SettingsManager(tmp_path / "settings.json"))
+    qtbot.addWidget(dialog)
+    dialog.feed_frame(np.zeros((48, 64, 3), dtype=np.uint8))
+    dialog.feed_fingertips([(0.37, 0.61)])
+    dialog._values = {"center_x": .47, "center_y": .53, "left": .13, "right": .91, "top": .17, "bottom": .89}
+    for step in CalibrationStep:
+        dialog._step = step
+        dialog._render()
+        assert not dialog.preview.grab().isNull()  # forces paintEvent
+
+
+def test_preview_survives_a_reach_step_captured_at_the_center(qtbot, tmp_path):
+    dialog = CursorCalibrationDialog(SettingsManager(tmp_path / "settings.json"))
+    qtbot.addWidget(dialog)
+    dialog.start_calibration()
+    _capture(dialog, .5, .5)   # center
+    _capture(dialog, .5, .5)   # "left" without moving: zero-width left reach
+    dialog.feed_fingertips([(.3, .5)])
+    assert not dialog.preview.grab().isNull()
+    dialog._timer.stop()
