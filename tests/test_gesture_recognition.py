@@ -10,24 +10,28 @@ def _point(x, y):
     return SimpleNamespace(x=x, y=y, z=0.0)
 
 
-def _pose(extended, thumb_up=False, thumb_down=False, bend=0.04):
+def _pose(extended, thumb_up=False, thumb_down=False, bend=0.04, spread=0.0, thumb_alongside=False):
     points = [_point(0.5, 0.9) for _ in range(21)]
     if "thumb" in extended:
         if thumb_up:
             points[2:5] = [_point(0.35, 0.72), _point(0.35, 0.52), _point(0.35, 0.30)]
         elif thumb_down:
             points[2:5] = [_point(0.35, 0.60), _point(0.35, 0.72), _point(0.35, 0.84)]
-        else:
-            points[2:5] = [_point(0.42, 0.72), _point(0.30, 0.60), _point(0.18, 0.48)]
-    else:
-        points[2:5] = [_point(0.42, 0.72), _point(0.30, 0.72), _point(0.30, 0.82)]
+        else:  # sideways, nearly horizontal
+            points[2:5] = [_point(0.40, 0.74), _point(0.28, 0.72), _point(0.14, 0.70)]
+    elif thumb_alongside:  # flat 'stop' palm: thumb rests beside the index finger
+        points[2:5] = [_point(0.38, 0.80), _point(0.36, 0.75), _point(0.37, 0.70)]
+    else:  # tucked across the palm toward the middle knuckle
+        points[2:5] = [_point(0.40, 0.80), _point(0.45, 0.76), _point(0.50, 0.74)]
 
+    tilt = {"index": -spread, "middle": spread}
     for name, offset, x in zip(
-        ("index", "middle", "ring", "pinky"), (5, 9, 13, 17), (0.35, 0.45, 0.55, 0.65)
+        ("index", "middle", "ring", "pinky"), (5, 9, 13, 17), (0.40, 0.45, 0.50, 0.55)
     ):
         if name in extended:
+            lean = tilt.get(name, 0.0)
             points[offset : offset + 4] = [
-                _point(x, 0.72), _point(x, 0.57), _point(x, 0.42), _point(x + bend, 0.27)
+                _point(x, 0.72), _point(x + lean / 3, 0.57), _point(x + 2 * lean / 3, 0.42), _point(x + lean + bend, 0.27)
             ]
         else:
             points[offset : offset + 4] = [
@@ -48,7 +52,7 @@ def test_recognizes_all_supported_gestures():
         "Fist": _pose(set()),
         "Thumbs Up": _pose({"thumb"}, thumb_up=True),
         "Thumbs Down": _pose({"thumb"}, thumb_down=True),
-        "Peace Sign": _pose({"index", "middle"}),
+        "Peace Sign": _pose({"index", "middle"}, spread=0.08),
         "Pointing Up": _pose({"index"}),
     }
     for expected, landmarks in cases.items():
@@ -101,3 +105,19 @@ def test_without_a_custom_matcher_unknown_poses_stay_unknown():
     engine = _engine()
     assert engine.custom_matcher is None
     assert engine.detect_gesture(_pose({"middle"})).name == "Unknown"
+
+
+def test_tucked_thumb_rules_from_real_world_data():
+    """HaGRID-derived rules: tucked thumbs, V-spread, flat palms and loose fingers."""
+    engine = _engine()
+    # Two fingers held together is not a peace sign.
+    assert engine.detect_gesture(_pose({"index", "middle"}, spread=0.0, bend=0.0)).name == "Unknown"
+    # Four fingers up with the thumb tucked across the palm is not an open palm.
+    assert engine.detect_gesture(_pose({"index", "middle", "ring", "pinky"})).name == "Unknown"
+    # A flat palm with the thumb resting alongside the index finger is.
+    assert engine.detect_gesture(_pose({"index", "middle", "ring", "pinky"}, thumb_alongside=True)).name == "Open Palm"
+
+
+def test_thumb_reach_separates_tucked_from_extended():
+    assert _pose(set()).thumb_reach() < HandLandmarkData.THUMB_EXTENDED_REACH
+    assert _pose({"thumb"}).thumb_reach() > HandLandmarkData.THUMB_EXTENDED_REACH

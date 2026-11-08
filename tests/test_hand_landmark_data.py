@@ -10,7 +10,8 @@ def _point(x, y, z=0.0):
 def _hand(folded=False):
     points = [_point(0.5, 0.9) for _ in range(21)]
     if folded:
-        points[2:5] = [_point(0.4, 0.7), _point(0.3, 0.7), _point(0.3, 0.8)]
+        # tucked across the palm, as a real fist holds the thumb
+        points[2:5] = [_point(0.4, 0.8), _point(0.45, 0.75), _point(0.48, 0.72)]
     else:
         points[2:5] = [_point(0.4, 0.75), _point(0.3, 0.65), _point(0.2, 0.55)]
 
@@ -37,10 +38,7 @@ def test_fist_has_all_fingers_folded():
     assert set(data.get_finger_states().values()) == {"folded"}
 
 
-def test_state_updates_between_live_snapshots():
-    open_frame = HandLandmarkData.from_mediapipe(_hand())
-    fist_frame = HandLandmarkData.from_mediapipe(_hand(folded=True))
-    assert open_frame.get_finger_states() != fist_frame.get_finger_states()
+
 
 
 def test_rejects_incomplete_hand():

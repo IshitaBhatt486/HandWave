@@ -1,4 +1,4 @@
-from handwave.startup_timing import StartupTimer, is_enabled
+from handwave.diagnostics.startup_timing import StartupTimer, is_enabled
 
 
 def test_disabled_by_default_marks_are_no_ops(monkeypatch):

@@ -9,6 +9,8 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import cv2
+
+from handwave.vision.overlay_text import put_text
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, pyqtSlot
 
 from handwave.actions.action_queue import ActionQueue, ActionWorker
@@ -97,22 +99,62 @@ class CameraWorker(QObject):
         self._last_capture_time: float | None = None
         self._camera_fps = 0.0
 
+    MAX_CONSECUTIVE_READ_FAILURES = 15  # about half a second at 30 fps
+
+    @staticmethod
+    def capture_backend() -> int:
+        """DirectShow on Windows, AVFoundation on macOS (EXPERIMENTAL), auto elsewhere."""
+        from handwave import platforms
+
+        if platforms.is_windows():
+            return cv2.CAP_DSHOW
+        if platforms.is_macos():
+            return cv2.CAP_AVFOUNDATION
+        return cv2.CAP_ANY
+
+    def _open(self) -> bool:
+        self.capture = cv2.VideoCapture(self.camera_index, self.capture_backend())
+        if not self.capture.isOpened():
+            return False
+        self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.capture.set(cv2.CAP_PROP_FPS, 30)
+        # Keep at most one frame queued in the driver so reads are never stale.
+        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        return True
+
+    def _reopen(self) -> bool:
+        logger.warning("Webcam stopped returning frames; reopening it")
+        if self.capture is not None:
+            self.capture.release()
+        return self._open()
+
     @pyqtSlot()
     def run(self) -> None:
         try:
-            self.capture = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+            self._open()
             if not self.capture.isOpened():
                 raise RuntimeError(
                     f"Could not open webcam {self.camera_index}. Check camera permissions and availability."
                 )
-            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self.capture.set(cv2.CAP_PROP_FPS, 30)
             self.opened.emit()
+            failures = 0
+            reopened = False
             while not self.stop_event.is_set():
                 ok, frame = self.capture.read()
-                if not ok:
-                    raise RuntimeError("The webcam stopped returning frames.")
+                if not ok or frame is None:
+                    # DirectShow drivers occasionally drop a read (USB hiccup,
+                    # exposure change). Ride out short glitches and reopen the
+                    # device once before reporting an error to the user.
+                    failures += 1
+                    if failures < self.MAX_CONSECUTIVE_READ_FAILURES:
+                        self.stop_event.wait(0.01)
+                        continue
+                    if reopened or not self._reopen():
+                        raise RuntimeError("The webcam stopped returning frames.")
+                    reopened, failures = True, 0
+                    continue
+                failures = 0
                 captured_at = time.perf_counter()
                 if self._last_capture_time is not None:
                     elapsed = captured_at - self._last_capture_time
@@ -147,6 +189,14 @@ class CameraWorker(QObject):
 class GestureWorker(QObject):
     """Consumes only the latest frame and performs all landmark/action work."""
 
+    METRICS_INTERVAL_SECONDS = 0.25
+    # Pace by capture timestamps, not by sleeping. The old "sleep until 33 ms
+    # after each loop" added 6-7 ms of frame age with a normal 30 fps camera
+    # (+-3 ms timing jitter). Processing every frame the moment it arrives, and
+    # skipping only frames closer than 25 ms to the last one, keeps 30 fps
+    # cameras at ~0 ms wait while still capping a 60 fps camera near 30/s.
+    MIN_FRAME_INTERVAL_SECONDS = 0.025
+
     frame_ready = pyqtSignal(object)
     stopped = pyqtSignal()
     error = pyqtSignal(str)
@@ -177,6 +227,8 @@ class GestureWorker(QObject):
         self.diagnostics_monitor = DiagnosticsMonitor()
         self._last_recognition_time: float | None = None
         self._recognition_fps = 0.0
+        self._last_metrics_emit = float("-inf")
+        self._last_processed_capture = float("-inf")
 
     @pyqtSlot()
     def run(self) -> None:
@@ -188,12 +240,16 @@ class GestureWorker(QObject):
                 sensitivity=self.settings.gesture_sensitivity,
                 overlay_enabled=self.settings.overlay_enabled,
                 custom_matcher=CustomGestureMatcher(self.custom_gestures),
+                model_complexity=0 if self.settings.fast_hand_model else 1,
+                debug_text=self.settings.debug_overlay,
             )
             while not self.stop_event.is_set():
-                started = time.perf_counter()
                 packet = self.buffer.get_packet()
                 if packet is None:
                     continue
+                if packet.captured_at - self._last_processed_capture < self.MIN_FRAME_INTERVAL_SECONDS:
+                    continue  # camera faster than ~40 fps: skip this one, the next arrives shortly
+                self._last_processed_capture = packet.captured_at
                 annotated, gesture = self.engine.process(packet.frame)
                 recognized_at = time.perf_counter()
                 if self._last_recognition_time is not None:
@@ -214,10 +270,10 @@ class GestureWorker(QObject):
                 ])
                 self.hands_ready.emit(gesture.hands)
                 cpu, memory = self.diagnostics_monitor.update()
-                if self.settings.overlay_enabled:
-                    cv2.putText(annotated, f"Stable: {filtered.stable_gesture}", (16, 128), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
-                    cv2.putText(annotated, f"CPU: {cpu:.1f}%  Memory: {memory:.1f} MB", (16, 384), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2, cv2.LINE_AA)
-                    cv2.putText(annotated, f"Motion: {dispatch.swipe.diagnostic}", (16, 412), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+                if self.settings.overlay_enabled and self.settings.debug_overlay:
+                    put_text(annotated, f"Stable: {filtered.stable_gesture}", (16, 128), 0.7, 1)
+                    put_text(annotated, f"CPU: {cpu:.1f}%  Memory: {memory:.1f} MB", (16, 384), 0.6, 1)
+                    put_text(annotated, f"Motion: {dispatch.swipe.diagnostic}", (16, 412), 0.5, 1)
                 self.activity.emit(gesture.name, filtered.stable_gesture, dispatch.action if dispatch.executed else "")
                 outcome = self.runtime.action_mapper.last_outcome
                 routine_gates = {"gesture not re-armed", "cooldown active", "hold duration not met"}
@@ -228,7 +284,9 @@ class GestureWorker(QObject):
                 ):
                     self.action_outcome.emit(outcome)
                 self.confidence_ready.emit(gesture.confidence)
-                self.metrics_ready.emit(PipelineMetrics(
+                if recognized_at - self._last_metrics_emit >= self.METRICS_INTERVAL_SECONDS:
+                    self._last_metrics_emit = recognized_at
+                    self.metrics_ready.emit(PipelineMetrics(
                     camera_fps=packet.camera_fps,
                     recognition_fps=self._recognition_fps,
                     latency_ms=(time.perf_counter() - packet.captured_at) * 1000.0,
@@ -241,10 +299,8 @@ class GestureWorker(QObject):
                     two_hand_gesture=gesture.two_hand.name,
                     motion_gesture=dispatch.swipe.name,
                     motion_source=dispatch.swipe.diagnostic,
-                ))
+                    ))
                 self.frame_ready.emit(annotated)
-                # Cap processing near 30 FPS; the latest-frame buffer performs adaptive skipping.
-                self.stop_event.wait(max(0.0, (1.0 / 30.0) - (time.perf_counter() - started)))
         except Exception as exc:
             logger.exception("Gesture processing failed")
             self.error.emit(str(exc))

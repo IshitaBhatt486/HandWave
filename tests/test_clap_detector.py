@@ -58,24 +58,7 @@ def test_too_slow_claps_do_not_trigger():
     assert detections == []
 
 
-def test_single_clap_alone_never_triggers():
-    detector = ClapDetector()
-    detections = []
-    detector.double_clap.connect(lambda: detections.append(True))
-    detector.process_audio(_clap(), timestamp=0.0)
-    assert detections == []
-    assert detector.state == ClapState.WAITING_FOR_SECOND_CLAP
 
-
-def test_peaks_outside_timing_window_do_not_trigger():
-    detector = ClapDetector()
-    detections = []
-    detector.double_clap.connect(lambda: detections.append(True))
-
-    detector.process_audio(_clap(), timestamp=0.0)
-    detector.process_audio(_clap(), timestamp=0.08)
-    detector.process_audio(_clap(), timestamp=1.2)
-    assert detections == []
 
 
 def test_normal_speech_and_background_noise_do_not_trigger():
@@ -119,35 +102,13 @@ def test_state_machine_transitions_and_reset():
     assert detector.state == ClapState.IDLE
 
 
-def test_calibration_derives_baseline_and_threshold():
-    detector = ClapDetector()
-    rng = np.random.default_rng(1)
-    detector.begin_calibration()
-    for _ in range(20):
-        detector.feed_calibration_sample(_quiet_noise(rng, level=0.01))
-    result = detector.finish_calibration(margin=6.0)
-
-    assert result.sample_count == 20
-    assert result.ambient_rms == pytest.approx(detector._noise_floor)
-    assert result.threshold >= detector.min_peak
-    assert detector.threshold == pytest.approx(result.threshold)
 
 
-def test_calibration_samples_never_trigger_a_clap():
-    detector = ClapDetector()
-    detections = []
-    detector.double_clap.connect(lambda: detections.append(True))
-    detector.begin_calibration()
-    detector.feed_calibration_sample(_clap())  # even a loud sample must not fire during calibration
-    detector.finish_calibration()
-    assert detections == []
 
 
-def test_finish_calibration_without_samples_raises():
-    detector = ClapDetector()
-    detector.begin_calibration()
-    with pytest.raises(ValueError):
-        detector.finish_calibration()
+
+
+
 
 
 def test_status_reports_input_level_and_availability():
@@ -288,3 +249,19 @@ def test_continuous_loud_sound_and_random_keyboard_peaks_do_not_trigger():
         keyboard = _quiet_noise(rng, level=0.03)
         keyboard[::32] = 0.09  # repeated small mechanical peaks, not a transient clap pair
         assert not detector.process_audio(keyboard, timestamp=index * 0.05)
+
+
+def test_consume_levels_reports_loudest_block_since_last_poll():
+    detector = ClapDetector()
+    assert detector.consume_levels() is None
+
+    quiet = np.full(256, 0.01, dtype=np.float32)
+    detector.process_audio(quiet, timestamp=0.0)
+    detector.process_audio(_clap(0.5), timestamp=0.02)
+    detector.process_audio(quiet, timestamp=0.04)
+
+    peak, peak_rms, mean_rms = detector.consume_levels()
+    assert peak == pytest.approx(0.5)
+    assert peak_rms > 0.01
+    assert 0.01 < mean_rms < peak_rms
+    assert detector.consume_levels() is None

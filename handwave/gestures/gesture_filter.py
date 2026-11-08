@@ -15,23 +15,35 @@ class FilteredGesture:
 
 
 class GestureFilter:
-    """Require a rolling majority to persist before changing stable output."""
+    """Change the stable gesture only on consistent, recent evidence.
+
+    A gesture becomes stable when, within a short sliding window, it fills at
+    least ``min_share`` of the frames *and* has been present for at least
+    ``persistence_seconds``. The same rule applies to leaving a gesture (to
+    "Unknown"), so brief tracking dropouts are ignored.
+
+    Why not a long majority vote: with a 1 s majority window plus a 0.5 s
+    hold, a new gesture first had to outvote a full second of old frames,
+    which measured ~1.03 s from pose to action. This window reacts in about a
+    third of that while rejecting misreads and flicker at least as well
+    (see tests/test_gesture_filter.py and docs/performance.md).
+    """
 
     def __init__(
         self,
-        persistence_seconds: float = 0.5,
-        history_seconds: float = 1.0,
+        persistence_seconds: float = 0.25,
+        history_seconds: float = 0.4,
+        min_share: float = 0.7,
         max_frames: int = 60,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if persistence_seconds < 0 or history_seconds <= 0 or max_frames <= 0:
-            raise ValueError("Gesture filter timing and history limits must be positive")
+        if persistence_seconds < 0 or history_seconds <= 0 or max_frames <= 0 or not 0.5 < min_share <= 1.0:
+            raise ValueError("Gesture filter timing, share and history limits must be valid")
         self.persistence_seconds = persistence_seconds
-        self.history_seconds = history_seconds
+        self.history_seconds = max(history_seconds, persistence_seconds)
+        self.min_share = min_share
         self._clock = clock
         self._history: deque[tuple[float, str]] = deque(maxlen=max_frames)
-        self._candidate = "Unknown"
-        self._candidate_since: float | None = None
         self._stable = "Unknown"
 
     def update(self, raw_gesture: str | None) -> FilteredGesture:
@@ -43,29 +55,15 @@ class GestureFilter:
         while self._history and self._history[0][0] < cutoff:
             self._history.popleft()
 
-        votes = Counter(gesture for _, gesture in self._history)
-        majority, count = votes.most_common(1)[0]
-        if count <= len(self._history) / 2:
-            majority = "Unknown"
-
-        if majority != self._candidate:
-            self._candidate = majority
-            self._candidate_since = now
-        elif self._candidate_since is None:
-            self._candidate_since = now
-
-        if (
-            self._candidate != self._stable
-            and self._candidate_since is not None
-            and now - self._candidate_since >= self.persistence_seconds
-        ):
-            self._stable = self._candidate
+        dominant, count = Counter(gesture for _, gesture in self._history).most_common(1)[0]
+        if dominant != self._stable and count >= self.min_share * len(self._history):
+            first_seen = next(t for t, gesture in self._history if gesture == dominant)
+            if now - first_seen >= self.persistence_seconds:
+                self._stable = dominant
 
         return FilteredGesture(raw_gesture=raw, stable_gesture=self._stable)
 
     def reset(self) -> None:
         """Clear all temporal state, for example when the camera restarts."""
         self._history.clear()
-        self._candidate = "Unknown"
-        self._candidate_since = None
         self._stable = "Unknown"
