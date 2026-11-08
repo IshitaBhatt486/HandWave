@@ -64,6 +64,8 @@ def default_gesture_bindings(macos: bool | None = None) -> dict[str, object]:
     }
 
 
+# Snapshot for display and scripts. Code that binds actions calls
+# default_gesture_bindings() so the shortcuts follow the current platform.
 DEFAULT_GESTURE_BINDINGS = default_gesture_bindings()
 
 DEFAULT_ENABLED_GESTURES = {
@@ -75,7 +77,7 @@ DEFAULT_ENABLED_GESTURES = {
 def complete_bindings(values: dict[str, object] | None = None) -> dict[str, ActionDefinition]:
     result = {
         gesture: ActionDefinition.from_data(action)
-        for gesture, action in DEFAULT_GESTURE_BINDINGS.items()
+        for gesture, action in default_gesture_bindings().items()
     }
     if values:
         result.update({gesture: ActionDefinition.from_data(action) for gesture, action in values.items()})

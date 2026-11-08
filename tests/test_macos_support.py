@@ -241,3 +241,15 @@ def test_user_facing_text_uses_mac_terms(mac, qtbot):
     qtbot.addWidget(dialog)
     assert dialog.startup_card.text() == "Start HandWave at login"
     assert "menu bar" in dialog.startup_card.description
+
+
+def test_default_shortcuts_follow_the_platform_at_call_time(monkeypatch):
+    # Defaults used to be frozen at import, so a process that imported them as
+    # macOS kept Mac shortcuts even after switching to Windows behaviour.
+    from handwave.actions.action_mapper import ActionMapper
+
+    for is_mac, expected in ((True, ("ctrl", "left")), (False, ("win", "ctrl", "left"))):
+        monkeypatch.setattr(platforms, "is_macos", lambda value=is_mac: value)
+        gui = MagicMock()
+        ActionMapper(clock=lambda: 10.0, pyautogui_module=gui).execute("Swipe Left")
+        gui.hotkey.assert_called_once_with(*expected)

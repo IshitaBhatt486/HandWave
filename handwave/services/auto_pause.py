@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import ntpath
 import os
 import sys
 import threading
@@ -127,7 +128,8 @@ def apps_using_device(device: str, exclude: set[str] | None = None, registry=Non
         if name == "NonPackaged":
             for exe_key in children(f"{base}\\NonPackaged"):
                 exe_path = exe_key.replace("#", "\\").lower()
-                if exe_path in exclude or os.path.basename(exe_path) in exclude:
+                # Registry paths are always Windows paths, whatever OS runs this code.
+                if exe_path in exclude or ntpath.basename(exe_path) in exclude:
                     continue
                 if in_use(f"{base}\\NonPackaged\\{exe_key}"):
                     users.append(exe_path)

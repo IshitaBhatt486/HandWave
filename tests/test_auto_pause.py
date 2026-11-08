@@ -215,3 +215,15 @@ def test_double_clap_can_be_disabled(qtbot, tmp_path):
     clap.start.assert_not_called()
     assert "OFF" in window.microphone_status.text()
     window.exit_application()
+
+
+def test_handwave_is_excluded_even_where_os_path_is_posix(monkeypatch):
+    # The macOS CI job runs this code with posixpath, which does not split on "\".
+    import posixpath
+    import types
+
+    from handwave.services import auto_pause
+
+    monkeypatch.setattr(auto_pause, "os", types.SimpleNamespace(path=posixpath))
+    registry = _registry(**{"C:#Zoom#zoom.exe": 0, "C:#Py#python.exe": 0})
+    assert apps_using_device("webcam", exclude={"python.exe"}, registry=registry) == [r"c:\zoom\zoom.exe"]
