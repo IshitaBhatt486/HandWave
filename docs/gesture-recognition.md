@@ -1,5 +1,24 @@
 # Gesture recognition
 
+```mermaid
+flowchart LR
+    F[Camera frame] --> MP[MediaPipe Hands<br/>21 landmarks per hand]
+    MP --> HS[HandState per hand]
+    HS --> FS[Finger states<br/>extended / folded]
+    FS --> BI[Built-in poses]
+    HS --> CU[Custom gestures<br/>nearest centroid]
+    HS --> TH[Two-hand relationship]
+    HS --> SW[Swipe tracker]
+    HS --> PI[Pinch tracker]
+    BI --> FL[Stability filter<br/>≥70% of 0.4 s, held ≥0.25 s]
+    CU --> FL
+    FL --> AR{Arbitration}
+    TH --> AR
+    PI --> AR
+    SW --> AR
+    AR -->|one action name per frame| AM[ActionMapper]
+```
+
 ## Built-in static gestures
 
 `GestureEngine.GESTURE_PATTERNS` (`handwave/gestures/gesture_engine.py`) maps a
@@ -73,13 +92,25 @@ One action name is chosen per frame, in this order (implemented by
 
 **two-hand gesture > pinch > swipe > static gesture**
 
+```mermaid
+flowchart TD
+    A{Two-hand gesture?} -->|yes| T[use it]
+    A -->|no| B{Pinch active?}
+    B -->|yes| P[pinch volume]
+    B -->|no| C{Swipe completed?}
+    C -->|yes| S[use swipe]
+    C -->|no| D{Stable static pose?}
+    D -->|yes| ST[use pose]
+    D -->|no| N[no action]
+```
+
 This is a small, explicit policy function, not a configurable priority table.
 Changing it means editing that policy, which documents the rationale
 (two-hand and pinch are intentional, low-ambiguity motions;
 swipe and static poses are more prone to accidental triggering while doing
 something else with the hand).
 
-## Custom gestures (static, first cut)
+## Custom gestures
 
 `handwave/gestures/custom_gesture.py` builds a custom gesture from the same
 5-value finger-extension vector the built-in patterns use
@@ -95,13 +126,11 @@ prototypes and existing custom gestures. `combine_detections()` gives
 built-in gestures priority — a custom gesture only fills in poses the
 built-in patterns leave as "Unknown."
 
-**Limitations, explicitly**: only static single-hand custom gestures are
-implemented end to end. The frame/sample data model
-(`GestureFrame`/`GestureSample`) already records per-frame timestamp and
-centroid, so motion gestures and two-hand custom gestures can reuse the same
-storage format later, but their matching logic does not exist yet. There is
-no recording/test UI yet — `CustomGestureStore` persists definitions, but
-creating one currently requires calling the Python API directly.
+Gestures are recorded and tested from **Custom Gestures** on the dashboard
+(`handwave/ui/custom_gestures_dialog.py`). Only static single-hand poses are
+supported. The sample format (`GestureFrame`/`GestureSample`) already stores
+per-frame timestamps and centroids, so motion and two-hand custom gestures
+could reuse it, but nothing matches them yet.
 
 ## Record and replay
 
@@ -111,11 +140,11 @@ recognition (built-in + custom + two-hand) after hand states are known —
 (`handwave/gestures/landmark_replay.py`) calls it directly with hand states
 reconstructed from a recorded `LandmarkSequence`
 (`handwave/gestures/landmark_sequence.py`). Replaying a sequence therefore
-exercises the *exact* recognition code path used live — there is no second,
-parallel implementation. See:
+runs exactly the code used live. To replay a recording
+(`LandmarkRecorder` creates them):
 
 ```powershell
-python -m tools.replay_gesture path\to\sequence.json --speed 2
+python scripts\replay_gesture.py path\to\sequence.json --speed 2
 ```
 
 Recordings store normalized landmark data only (never camera frames), with a

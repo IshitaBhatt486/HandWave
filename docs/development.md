@@ -1,89 +1,97 @@
 # Development
 
-## Supported environment
+## Setup
 
-- Windows 10/11
-- CPython 3.11
-- PyQt6 6.7+, OpenCV 4.10+, MediaPipe 0.10.14-0.10.21
+You need Python 3.11. On Windows:
 
 ```powershell
-.\setup.cmd
+scripts\setup.cmd dev     # .venv with requirements-dev.txt
+scripts\run.cmd           # start HandWave
+scripts\run_tests.cmd -q  # tests + 80% coverage gate
 ```
 
-creates `.venv` and installs `handwave\requirements.txt`. Run from source:
+Anywhere else, the equivalent is `pip install -r requirements-dev.txt`,
+`python -m handwave.main` and `python -m pytest -q`. macOS needs a few extra
+steps; see [macos.md](macos.md).
 
-```powershell
-.\run.cmd
-```
+Test results and coverage reports go to `test-results/`. Run one layer at a
+time with `-m unit`, `-m integration`, `-m ui` or `-m benchmark` (add
+`--no-cov` so the coverage gate doesn't fail a partial run).
 
-## Repository layout
+## Layout
 
 ```text
-gesture-control/
-├── handwave/
-│   ├── actions/       Action abstraction (ActionDefinition/Executor/Mapper), action queue
-│   ├── config/        Settings, application profiles, atomic persistence
-│   ├── gestures/      Landmark model, built-in/custom/two-hand recognition, record/replay
-│   ├── services/      Clap detection, foreground-app + profile switching, action history, startup
-│   ├── ui/            Dashboard, diagnostics, settings dialog, onboarding
-│   ├── vision/         Capture/recognition worker threads and profiling
-│   └── main.py         Application bootstrap
-├── benchmarks/         Repeatable latency/startup benchmarks
-├── tools/              Developer CLI tools (landmark replay)
-├── docs/                This documentation
-├── packaging/           NSIS and Windows version metadata
-├── tests/               Unit, integration, UI, and benchmark tests
-└── build_release.*      Release entry points
+handwave/
+  actions/       action types, executor, cooldown/re-arm gate, action queue
+  application/   glue between recognition results and actions
+  config/        settings, profiles, templates, gesture names, safe file writes
+  diagnostics/   pipeline metrics and startup timing
+  gestures/      landmark model, built-in/custom/two-hand recognition, record/replay
+  platforms/     Windows/macOS detection and macOS-specific code
+  services/      double-clap, auto-pause, foreground app, startup, history
+  ui/            dashboard, settings, onboarding, dialogs, theme
+  vision/        capture and recognition threads
+  main.py        entry point
+benchmarks/      latency, startup and HaGRID benchmarks
+docs/            user and developer documentation
+packaging/       PyInstaller specs, NSIS installer, Windows version info
+scripts/         setup, run, test, build and install helpers; licence, replay and screenshot tools
+tests/           pytest suite
 ```
 
-## Engineering model
+## How it fits together
 
-The GUI thread owns every widget. Capture, recognition, and OS-side effects
-run on three independent `QThread` workers; a capacity-one buffer holds only
-the latest camera frame; a FIFO action queue decouples OS-call latency from
-inference. See [architecture.md](architecture.md) for the full diagram,
-[gesture-recognition.md](gesture-recognition.md) and
-[actions.md](actions.md) for the two subsystems most likely to need
-extending, and [profiles.md](profiles.md) for per-application overrides.
+The Qt main thread owns every widget. Capture, recognition and actions each
+run on their own `QThread`: the capture thread keeps only the newest frame,
+and actions go through a queue so a slow key press can't stall recognition.
+[architecture.md](architecture.md) has the full picture;
+[gesture-recognition.md](gesture-recognition.md), [actions.md](actions.md)
+and [profiles.md](profiles.md) cover the parts you're most likely to change.
 
-## Extending settings
+## Things that are easy to break
 
-1. Add a typed field + validation to `AppSettings` (`handwave/config/settings_manager.py`).
-2. Add UI controls in the relevant `SettingsDialog` tab and return the value from `values()`.
-3. Pass the immutable snapshot to the owning worker.
-4. Add persistence, invalid-input, and UI tests (`tests/test_settings_manager.py`, `tests/test_settings_dialog.py`).
+- **Import order.** `handwave/__init__.py` loads OpenCV before PyQt6 and
+  preloads a recent MSVC runtime. Changing that order brings back an
+  intermittent native crash on Windows. See `handwave/_runtime.py`.
+- **Startup time.** Anything imported at module level from
+  `handwave/ui/main_window.py` slows startup. MediaPipe (~0.7 s) is only
+  imported once the recognition thread starts, and
+  `tests/test_startup_performance.py` checks that. Run
+  `python -m benchmarks.benchmark_startup` before and after changing imports.
+- **macOS code** goes in `handwave/platforms/macos.py`, with PyObjC imported
+  inside functions so Windows never loads it.
 
-Unknown JSON keys are ignored for forward/backward compatibility; missing
-keys fall back to defaults; a corrupted settings file falls back to its
-`.bak` copy, then to defaults (see [architecture.md](architecture.md#persistence)).
+## Common changes
 
-## Adding a built-in static gesture
+**A new setting:** add a typed, validated field to `AppSettings` in
+`handwave/config/settings_manager.py`, a control in the right
+`SettingsDialog` tab, and tests in `tests/test_settings_manager.py` and
+`tests/test_settings_dialog.py`. Unknown keys in `settings.json` are ignored
+and missing ones get defaults, so old files keep working.
 
-1. Add the display name to `GESTURES` (`handwave/config/gesture_config.py`) and its default binding/enabled state.
-2. Add a finger-state pattern to `GestureEngine.GESTURE_PATTERNS`.
-3. Add orientation validation if the finger pattern is ambiguous (see Thumbs Up/Down).
-4. Add geometry fixtures and recognition cases (`tests/test_gesture_recognition.py`).
-5. Add settings persistence and action-mapping coverage.
+**A new built-in pose:** add it to `GESTURES` and the default bindings in
+`handwave/config/gesture_config.py`, add its finger pattern to
+`GestureEngine.GESTURE_PATTERNS`, and add recognition cases to
+`tests/test_gesture_recognition.py`. If it looks like an existing pose, add
+an orientation check the way thumbs up/down do.
 
-## Adding an action type
+**A new action type:** see [actions.md](actions.md#extending-the-action-abstraction).
 
-See [actions.md](actions.md#extending-the-action-abstraction).
+## Debugging without a camera
 
-## Startup performance discipline
-
-Anything imported at module level of a file reachable from
-`handwave.ui.main_window` is on the app-startup path. `mediapipe` (~0.7s
-import cost) is deliberately deferred to `GestureWorker.run()` — see
-`docs/development.md`'s sibling note in `tests/test_startup_performance.py`,
-which asserts merely importing `main_window` never imports `mediapipe`. Run
-`python -m benchmarks.benchmark_startup` before/after any change that touches
-imports in `handwave/vision/camera_manager.py` or `handwave/ui/main_window.py`.
-
-## Regenerating documentation screenshots
+`LandmarkRecorder` in `handwave/gestures/landmark_sequence.py` saves hand
+landmarks (never video) to JSON. Replay a recording through the real
+recogniser with:
 
 ```powershell
-python scripts\capture_docs_screenshots.py
+python scripts\replay_gesture.py path\to\recording.json --speed 2
 ```
 
-Uses simulated Qt signals and labels the camera image `DOCUMENTATION
-PREVIEW`. Review every generated image before committing it.
+## Screenshots
+
+`python scripts\capture_docs_screenshots.py --hagrid-dir <HaGRID sample>`
+retakes the screenshots from the real app. HaGRID photos (see the
+[benchmark report](benchmarks/HAGRID_BENCHMARK_REPORT.md) for the download)
+go through the real recogniser, faces are blurred, and the timings shown are
+measured. Without `--hagrid-dir` only the screens with no photo are updated.
+Look at every image before committing it.

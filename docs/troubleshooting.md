@@ -1,175 +1,107 @@
 # Troubleshooting
 
-> Availability: microphone support, double-clap activation, and cursor
-> calibration are being built and are not available for use yet. The legacy
-> guidance below describes the in-progress implementation, not a supported
-> current-release feature.
+Start with the log at `%USERPROFILE%\.handwave\handwave.log` (`~/.handwave/handwave.log`
+on macOS) and the **Diagnostics** tab. Together they usually show which stage
+is failing: camera, hand tracking, gesture recognition or the action itself.
 
-## Quick diagnostic flow
+## HandWave doesn't start
 
-```mermaid
-flowchart TD
-    Start[HandWave problem] --> Opens{Application opens?}
-    Opens -->|No| Logs[Check .handwave/handwave.log]
-    Opens -->|Yes| Camera{Camera becomes live?}
-    Camera -->|No| Permissions[Check privacy settings and camera ownership]
-    Camera -->|Yes| Hand{Hand landmarks visible?}
-    Hand -->|No| Scene[Improve lighting, framing, and sensitivity]
-    Hand -->|Yes| Stable{Stable gesture appears?}
-    Stable -->|No| Pose[Hold pose and inspect confidence]
-    Stable -->|Yes| Action{Action occurs?}
-    Action -->|No| Mapping[Check enabled state, binding, cooldown, active profile]
-    Action -->|Yes| Done[Operating normally]
-```
+- If Windows says the app was blocked (Smart App Control) or shows "Windows
+  protected your PC", that's because releases aren't code-signed yet.
+  SmartScreen offers **More info → Run anyway**; Smart App Control has no
+  override, so run from source until signed builds are out.
+- From source, run `scripts\setup.cmd` again, then `scripts\run.cmd` from a
+  terminal so you can see any error.
+- Set `HANDWAVE_STARTUP_PROFILE=1` before launching to log how long each
+  startup step takes.
+- If Smart App Control blocks a DLL when running from source, reinstall the
+  pinned versions with `scripts\setup.cmd`.
 
-## Application does not start
+## The camera doesn't turn on
 
-1. For a source run, confirm Python 3.11 and run `.\setup.cmd`.
-2. Start from a terminal with `.\run.cmd` (or `python -m handwave.main`) to see console errors.
-3. Inspect `%USERPROFILE%\.handwave\handwave.log`.
-4. Set `HANDWAVE_STARTUP_PROFILE=1` before launch to see a checkpoint-by-checkpoint timing log (see [development.md](development.md#startup-performance-discipline)).
-5. If using the installed application, reinstall with the latest setup executable.
+- Allow camera access for desktop apps in **Windows Settings → Privacy &
+  security → Camera**.
+- Close other apps that might be holding the camera (video calls, OBS, browser tabs).
+- If you have more than one camera, pick the right one in **Settings → Camera**.
+- Check that the camera works in the Windows Camera app.
 
-## Camera unavailable
+If auto-pause is on, HandWave also releases the camera on purpose while
+another app uses it; the dashboard says why it paused.
 
-| Check | Resolution |
-|---|---|
-| Windows privacy permission | Enable camera access for desktop apps in Privacy & security settings. |
-| Camera already in use | Close conferencing, browser, recording, and virtual-camera software. |
-| Wrong camera index | Change the camera index in Settings → Camera, then restart recognition. |
-| Device disconnected | Reconnect it and enable recognition again. |
-| Driver failure | Test the device in the Windows Camera app and update its driver. |
+## My hand isn't detected, or the wrong gesture shows up
 
-HandWave uses the DirectShow backend and requests 640x480 at 30 FPS.
+- Keep your whole hand and wrist in the frame, roughly in the middle.
+- Light your hand from the front. A bright window behind you is the most common problem.
+- Hold static poses still for about half a second.
+- For thumbs up/down, point the thumb clearly up or down with the other fingers folded.
+- Lower the sensitivity in **Settings → General** if detection drops
+  out, raise it if you get false triggers.
+- Fist and thumbs down are the least reliable poses. If one keeps
+  misfiring, disable it or record a custom gesture instead.
 
-## Hand is not detected reliably
+Two-hand gestures need both hands visible and making the *same* pose.
 
-- Keep the complete hand and wrist inside the preview.
-- Use even front lighting; avoid a bright window behind the hand.
-- Separate the hand visually from a cluttered background.
-- Adjust sensitivity in Settings → General.
-- Use the confidence meter and raw gesture display to distinguish landmark loss from classification mismatch.
+## The gesture shows up but nothing happens
 
-## Two hands behave unexpectedly
+The action log on the dashboard says why an action was skipped. The usual reasons:
 
-- Diagnostics shows `Hands detected` and each hand's pose; confirm both are
-  detected before expecting a two-hand gesture.
-- Both hands must hold the *same* pose (Open Palm or Fist) simultaneously —
-  mismatched poses are deliberately treated as no gesture, to avoid false
-  activation (see [gesture-recognition.md](gesture-recognition.md)).
-- If hands cross rapidly, a one-frame pose flicker on which hand is "primary" is a known limitation, not a crash.
+- The gesture is disabled or bound to *No action*.
+- It's in cooldown, or you haven't changed pose since it last fired. Held poses fire once.
+- An app profile is active and has its own binding (the dashboard shows the active profile).
+- The target app ignores the key. Try the same shortcut on the keyboard.
 
-## Wrong or unstable gesture
+## Swipes or pinch don't work
 
-Static gestures use finger-joint straightness and exact finger-state
-patterns. Hold the pose for at least 0.5 seconds. For thumb gestures, make
-the vertical thumb direction unambiguous. If raw recognition is correct but
-stable remains Unknown, keep the pose still while the temporal filter
-accumulates a majority.
+- **Swipe:** move your whole hand across the frame in one quick, mostly
+  horizontal motion (about 0.1–0.7 s). Slow drifts are ignored.
+- **Pinch:** touch thumb and index tips first, then move up or down while
+  keeping the same distance from the camera.
 
-## Gesture appears but no action occurs
+## Double-clap doesn't work
 
-1. Open Settings → Gestures & Actions and ensure the gesture is checked and not bound to "No action."
-2. Check the Action Log — blocked actions now show *why* (e.g. "cooldown
-   active", "gesture not re-armed", "hold duration not met"); see
-   [actions.md](actions.md#why-an-action-was-or-wasnt-executed).
-3. Leave the pose before repeating it; held static poses fire once until re-armed.
-4. Confirm no application profile is silently overriding the binding (dashboard shows `Active profile`).
-5. Confirm the target application responds to the configured action (media keys, keyboard, mouse).
+- Allow microphone access for desktop apps in Windows privacy settings.
+- Clap twice, between 0.12 and 1 second apart.
+- Open **Microphone** on the dashboard and run **Recalibrate** in a quiet room.
+- If it triggers by mistake, raise *Clap minimum peak* in **Settings → Microphone**.
+- If the wrong input is used, set the device index in **Settings → Microphone**.
 
-Pinch volume is controlled by pinch movement rather than the static binding table.
+## App profiles don't switch
 
-## Swipe does not trigger
+- Turn on **Automatically switch application profiles** in **Settings → General**.
+- The profile's program name has to match the process name, e.g. `spotify.exe`,
+  not the window title.
+- Apps running as administrator can't be detected from a normal HandWave; the
+  global settings are used instead.
 
-Move the whole hand horizontally in a deliberate 0.1-0.7 second motion.
-Horizontal movement must dominate vertical movement and remain directionally
-consistent. Slow drift and diagonal movement are rejected intentionally.
+## It feels slow
 
-## Pinch volume is noisy or inactive
+Compare Camera FPS and Recognition FPS on the Diagnostics tab.
 
-- Bring thumb and index tips close enough for the overlay to report a pinch.
-- Establish the pinch before moving vertically.
-- Move smoothly; small jitter is ignored.
-- Keep roughly the same distance from the camera during the movement.
+- **Low camera FPS:** usually lighting (cameras slow down in the dark), USB or the driver.
+- **Recognition FPS lower than camera FPS:** the CPU can't keep up. Dropped
+  frames are expected here and stop lag from building up. Try **Faster hand
+  model** in **Settings → Camera** and close heavy apps.
 
-## Double clap does not work
+## Settings don't save
 
-| Symptom | Resolution |
-|---|---|
-| Microphone unavailable | Enable microphone access for desktop apps; call `retry()` after reconnecting a device. |
-| No detection | Clap twice, 0.2-1.0s apart, near the selected input device. |
-| False triggers | Run calibration in a quiet room (`begin_calibration`/`feed_calibration_sample`/`finish_calibration`) to set an ambient-noise-appropriate threshold. |
-| Wrong input device | Select the intended Windows default recording device before launch. |
+Settings, profiles and custom gestures are in `%APPDATA%\HandWave\config\`.
+Make sure that folder is writable. If a file is corrupted, HandWave falls back
+to its `.bak` copy, then to defaults. Edit these files only while HandWave is closed.
 
-Speech and steady noise are rejected using peak-to-RMS ratio plus an adaptive
-noise floor; see [architecture.md](architecture.md) and
-`handwave/services/clap_detector.py`. No audio is ever recorded to disk.
+## Start at login doesn't work
 
-### Manual microphone test
+Toggle **Launch at Windows Startup** off and on in the tray menu, then check
+that `HandWave.cmd` exists in
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`. Some security
+software blocks scripts in that folder.
 
-Open **Microphone Test** on the dashboard. In a quiet room, select **Start
-Ambient Calibration**, wait a few seconds, then select **Finish Calibration**.
-The screen shows ambient level, current peak level, adaptive threshold, and
-whether it is waiting for the first or second clap. Test quiet, normal, and
-loud pairs 0.2–1.0 seconds apart; then verify that speech, music, keyboard
-typing, and sustained sound do not confirm a double clap. If the device is
-unavailable, reconnect/select it in Windows and use **Retry Microphone**.
+## Build problems
 
-## Application profile does not switch automatically
+See [releasing.md](releasing.md). PyInstaller's optional-module warnings are in
+`build\HandWave\warn-HandWave.txt`.
 
-- Confirm "Automatically switch application profiles" is enabled in Settings → General.
-- Confirm the profile's `app_executable` matches the target's actual process
-  image name (case-insensitive, basename only — e.g. `spotify.exe`, not a
-  full path or window title).
-- Elevated/protected foreground processes may not resolve; this falls back
-  to Global rather than erroring (see [profiles.md](profiles.md)).
+## Reporting a bug
 
-## High latency or low FPS
-
-Open the Diagnostics tab and compare Camera FPS with Recognition FPS.
-
-- Low Camera FPS suggests a camera/driver, USB, or lighting issue.
-- Camera FPS above Recognition FPS with increasing dropped frames indicates inference saturation — drops are expected and keep latency bounded.
-- High latency without drops suggests driver-side buffering or system contention.
-- Close CPU-heavy applications and use a 640x480 camera mode.
-
-See [benchmarking.md](benchmarking.md) for expected queue behavior.
-
-## Settings, profiles, or custom gestures reset or fail to save
-
-Installed data lives under `%APPDATA%\HandWave\config\` (`settings.json`,
-`profiles.json`, `custom_gestures.json`). Confirm the directory is writable.
-Invalid JSON or unsupported values fall back to the `.bak` backup, then to
-defaults, never a crash. Back up files before manual editing and make
-changes while HandWave is closed.
-
-## Startup launch does not work
-
-Toggle **Launch at Windows Startup** off and on from the tray menu (this is
-the only place it's controlled — see [development.md](development.md) for
-why it isn't duplicated in the Settings dialog). Check for `HandWave.cmd`
-under:
-
-```text
-%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
-```
-
-Security software or organizational policy may prohibit Startup-folder scripts.
-
-## Installer or build problems
-
-- Use `.\build_release.cmd`; it avoids PowerShell execution-policy restrictions.
-- Install NSIS with `winget install --id NSIS.NSIS -e`.
-- For portable NSIS, set `NSIS_MAKENSIS` to the absolute `makensis.exe` path.
-- If OneDrive locks the PyInstaller cache (or any atomic-write temp file — see [architecture.md](architecture.md#persistence)), the retry logic handles it automatically.
-- Check `build\HandWave\warn-HandWave.txt` for optional-module warnings.
-
-## Collecting information for a bug report
-
-Include:
-
-- HandWave version and whether it is installed or run from source.
-- Windows version, webcam model, and CPU.
-- Relevant log excerpt with personal paths removed if desired.
-- Diagnostics screenshot showing FPS, latency, CPU, RAM, threads, hands detected, and gesture.
-- Reproduction steps and whether the issue persists with default settings.
+Use the [bug report template](https://github.com/IshitaBhatt486/HandWave/issues/new?template=bug_report.md)
+and include the HandWave version, Windows version, camera model, the relevant
+part of the log, and a Diagnostics screenshot if it's a performance problem.

@@ -1,119 +1,160 @@
-# HandWave User Guide
+# User guide
 
-## 1. Getting started
+> On a Mac? Read [macos.md](macos.md) first; macOS support is experimental.
 
-Install HandWave with `HandWave-1.0.0-rc.1-Setup.exe`, then launch it from the desktop
-or Start Menu. On first launch, a short walkthrough explains gestures and tray mode.
+## Getting started
 
-Windows may ask for camera permission. Microphone support, double-clap
-activation, and cursor calibration are currently being built and are not
-available for use yet.
+Download `HandWave.exe` from the [releases page](https://github.com/IshitaBhatt486/HandWave/releases)
+and run it, or use the installer if you want Start Menu shortcuts. The first
+time it opens, a short setup asks what your gestures should control, which
+camera to use, whether to use double-clap, when HandWave should pause itself,
+and which theme you like. You can skip it and keep the defaults, and rerun it
+later from the tray menu (**Run setup again…**).
 
-## 2. Dashboard
+![First-run setup](images/onboarding-auto-pause.png)
+<sub>Source: screenshot of HandWave 1.1.0.</sub>
 
-![Dark dashboard with live recognition](images/dashboard-dark.png)
+Windows will ask for camera access, and for the microphone if you turn on
+double-clap.
 
-The dashboard contains:
+## The dashboard
 
-1. **Status badge** — overall recognition state.
-2. **System status strip** — camera, recognition, and microphone readiness.
-3. **Camera workspace** — live video, landmarks, and optional diagnostic overlay.
-4. **Live gesture** — raw and temporally stabilized recognition results.
-5. **Confidence** — confidence of the current static-gesture classification.
-6. **Gesture history** — the last 50 stable gesture transitions.
-7. **Action log** — the last 50 executed gesture actions.
-8. **Diagnostics summary** — FPS, latency, CPU, RAM, and dropped frames.
+![Dark dashboard](demo/dashboard-dark.png)
+<sub>Source: screenshot of HandWave 1.1.0. Hand photo from [HaGRID](https://github.com/hukenovs/hagrid) (Kapitanov et al.), [HaGRID licence](https://github.com/hukenovs/hagrid/blob/master/license/en_us.pdf), cropped, run through HandWave's recogniser; not MIT-licensed. See [NOTICE](demo/NOTICE.md).</sub>
 
-Select **Enable Recognition** to open the camera. Select **Pause** to release it.
-Closing the window hides HandWave in the system tray; it does not stop active
-recognition. Double-click the tray icon to reopen the window.
+The camera preview sits in the middle with your hand's landmarks drawn on it.
+Around it you'll see the current gesture and its confidence, the recent
+gesture history, an action log, and a status strip for the camera,
+recognition and microphone.
 
-## 3. Performing gestures
+**Enable Recognition** turns the camera on and **Pause** releases it. The
+camera starts automatically when HandWave opens unless you turn that off in
+**Settings → General**. Closing the window sends HandWave to the system tray;
+double-click the tray icon to bring it back, or choose **Exit** from the tray
+menu to quit.
 
-Keep one hand visible, approximately centered, with the full wrist and fingertips
-inside the frame. Hold static gestures briefly: the filter requires a stable
-majority for approximately 0.5 seconds before an action occurs.
+## Making gestures
 
-| Gesture | Technique |
+Keep your hand roughly in the middle of the frame with the wrist visible.
+Hold a pose for about half a second; it fires once, and you need to change
+pose before it fires again.
+
+| Gesture | How |
 |---|---|
-| Open Palm | Face an open hand toward the camera with all fingers straight. |
-| Thumbs Up/Down | Fold four fingers and orient the thumb clearly up or down. |
-| Peace Sign | Extend index and middle fingers; fold the others. |
-| Pointing | Extend only the index finger. |
-| Swipe | Move the complete hand horizontally in one deliberate motion. |
-| Pinch volume | Touch thumb and index tips, then move the pinch upward or downward. |
+| Open palm | All five fingers straight, palm to the camera |
+| Fist | All fingers folded |
+| Thumbs up / down | Fingers folded, thumb clearly up or down |
+| Peace sign | Index and middle finger up, others folded |
+| Pointing | Only the index finger out; up, down, left and right can each have their own action |
+| Swipe | Move your whole hand sideways in one quick motion |
+| Finger / hand swipe up or down | The same, vertically, with one finger or an open hand |
+| Pinch volume | Touch thumb and index tips, then move up or down |
+| Two hands | Both palms open or both fists; or move open hands apart or together |
 
-Actions fire once when a stable pose is entered. Return to a neutral or different
-pose before repeating the same static action. Pinch volume emits controlled steps
-as the pinched hand moves vertically.
+## Changing what gestures do
 
-## 4. Customizing controls
+Open **Settings** from the dashboard or the tray menu. In **Gestures &
+Actions** you can turn each gesture on or off and give it a media key, a key,
+a shortcut, a mouse action, some text to type, a program to launch, or a
+macro. Program launches always need you to hold the pose a little longer, so
+they don't fire by accident. Changes apply as soon as you save.
 
-Open **Settings** from the dashboard or tray menu.
+![Gestures & Actions settings](images/settings-gestures.png)
+<sub>Source: screenshot of HandWave 1.1.0.</sub>
 
-![Gesture settings in the light theme](images/settings-light.png)
+**Sensitivity** and **Cooldown** in **Settings → General** apply to all
+gestures. Higher sensitivity needs a more confident hand detection.
 
-For each static or swipe gesture:
+Your settings live in `%APPDATA%\HandWave\config\settings.json`.
 
-- Clear its checkbox to prevent it from executing actions.
-- Select Play/Pause, Volume Up, Volume Down, Next Track, Previous Track, or No Action.
-- Adjust **Sensitivity** between 0.00 and 1.00. Higher values demand more confident
-  MediaPipe detection and tracking.
+### Macros
 
-Save the dialog, pause recognition if it is active, and enable it again. Recognition
-settings are loaded when a new camera session begins.
+Set a gesture's action type to **Macro (sequence)** and choose **Add steps…**.
+A macro can press keys and shortcuts, use media and mouse actions, type text
+and wait between steps (up to 32 steps and 10 seconds of waiting in total).
+Start from a preset such as *Copy, then paste*, or build your own. Macros
+can't launch programs.
 
-Settings are stored in JSON:
+![Macro editor](images/macro-editor.png)
+<sub>Source: screenshot of HandWave 1.1.0.</sub>
 
-- Installed build: `%APPDATA%\HandWave\config\settings.json`
-- Source checkout: `handwave\config\settings.json`
+### Custom gestures
 
-If the file is invalid, HandWave safely returns to defaults.
+Record a pose a few times and HandWave learns it alongside the built-in ones.
+Only features derived from the hand landmarks are saved, never images. Custom
+gestures are single-hand static poses.
 
-## 5. Dark and light themes
+### Templates
 
-Use **Light mode** or **Dark mode** in the title area. The choice is saved immediately.
+**Templates** on the dashboard saves your whole gesture setup under a name, so
+you can switch between, say, a media setup and a presentation setup. Templates
+can be exported and imported as files.
 
-![HandWave light dashboard](images/dashboard-light.png)
+Per-app profiles that switch with the focused window are built and tested, but
+don't have an editor yet; see [profiles.md](profiles.md).
 
-The layout adapts to the available width. On compact windows, the camera and
-activity panels stack vertically and remain accessible through scrolling.
+## Double-clap
 
-## 6. Diagnostics
+Clap twice, between 0.12 and 1 second apart, to turn recognition on or off.
+HandWave only measures loudness; audio is never recorded or saved.
 
-Open the **Diagnostics** tab for the full live telemetry view.
+To tune it for your room, click **Microphone** on the dashboard and then
+**Recalibrate**: stay quiet for 3 seconds, clap 5 times, then double-clap to
+confirm. More options (input device, minimum loudness, timing) are in
+**Settings → Microphone**.
 
-![Real-time diagnostics page](images/diagnostics-dark.png)
+## Auto-pause
 
-| Metric | Meaning |
-|---|---|
-| Camera FPS | Webcam frames captured per second. |
-| Recognition FPS | Frames completed by the recognition pipeline per second. |
-| Latency | Time from frame capture to completed recognition/action dispatch. |
-| CPU | HandWave process utilization normalized across logical CPU cores. |
-| Memory | HandWave working-set RAM. |
-| Active threads | Running capture, recognition, and action pipeline threads. |
-| Current gesture | Most useful current result, plus raw and stable values. |
+In **Settings → Auto-pause**, HandWave can step aside:
 
-Dropped frames are intentional when capture is faster than recognition. Dropping
-stale frames keeps the displayed and acted-on hand position current.
+- **while another app uses the camera** (Windows' own camera-usage records),
+- **during calls** in Zoom, Teams, Discord, Skype, Slack, Webex, WhatsApp, or
+  a browser using the microphone,
+- **while programs you choose are running**, for example `obs64.exe`.
 
-## 7. Tray and startup controls
+It checks every few seconds, shows why it paused, and resumes when the reason
+is gone. If you switch recognition on yourself while it's paused, HandWave
+respects that until a new reason comes up.
 
-The tray menu provides:
+![Auto-pause settings](images/settings-auto-pause.png)
+<sub>Source: screenshot of HandWave 1.1.0.</sub>
 
-- Open HandWave
-- Settings
-- Enable or disable recognition
-- Launch at Windows Startup
-- Exit
+## Cursor calibration
 
-**Exit** stops the camera asynchronously, drains accepted actions, removes the
-tray icon, and closes the application.
+**Cursor Calibration** learns how far you comfortably move your hand. Hold
+your index finger in the centre, then reach left, right, up and down, then
+steer the on-screen cursor onto five targets. Afterwards a cursor overlay
+follows your hand. It's visual only and doesn't move the real mouse pointer.
+Turn it off in **Settings → Cursor Control**.
 
-## 8. Uninstalling
+## Appearance and performance
 
-Use Windows **Settings > Apps > Installed apps > HandWave**, or choose
-**Uninstall HandWave** from the Start Menu. User settings are retained so a later
-installation can restore preferences. Delete `%APPDATA%\HandWave` manually if you
-also want to remove saved settings and logs.
+- Switch between dark and light mode from the title bar.
+- **Settings → Appearance → Reduce motion** turns off animations.
+- **Settings → Camera → Faster hand model** roughly halves tracking time on
+  older laptops at a small cost in accuracy.
+
+![Light dashboard](demo/dashboard-light.png)
+<sub>Source: screenshot of HandWave 1.1.0. Hand photo from [HaGRID](https://github.com/hukenovs/hagrid) (Kapitanov et al.), [HaGRID licence](https://github.com/hukenovs/hagrid/blob/master/license/en_us.pdf), cropped, run through HandWave's recogniser; not MIT-licensed. See [NOTICE](demo/NOTICE.md).</sub>
+
+## Diagnostics
+
+![Diagnostics page](demo/diagnostics-dark.png)
+<sub>Source: screenshot of HandWave 1.1.0 measuring its own recognition of a HaGRID photo.</sub>
+
+The **Diagnostics** tab shows camera and recognition FPS, latency, CPU,
+memory and dropped frames. Some dropped frames are normal: when the camera is
+faster than recognition, HandWave skips old frames so it always reacts to
+where your hand is now.
+
+## Starting with Windows
+
+Turn on **Launch at Windows Startup** in the tray menu.
+
+## Uninstalling
+
+If you used the installer, remove HandWave from **Settings → Apps →
+Installed apps**. For the portable exe, just delete it. Either way, your
+settings stay in `%APPDATA%\HandWave`; delete that folder to remove them too.
+
+Having trouble? See [troubleshooting.md](troubleshooting.md).
