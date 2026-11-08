@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from handwave import platforms
+from handwave.config.storage import migrate_legacy_file
+
 import json
 import logging
-import os
-import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -18,17 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class TemplateManager:
-    DEFAULT_PATH = (
-        Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-        / "HandWave"
-        / "config"
-        / "templates.json"
-        if getattr(sys, "frozen", False)
-        else Path(__file__).with_name("templates.json")
-    )
+    LEGACY_SOURCE_PATH = Path(__file__).with_name("templates.json")
+    DEFAULT_PATH = platforms.config_dir() / "templates.json"
 
     def __init__(self, path: str | Path | None = None) -> None:
-        self.path = Path(path) if path is not None else self.DEFAULT_PATH
+        self.path = Path(path) if path is not None else migrate_legacy_file(self.LEGACY_SOURCE_PATH, self.DEFAULT_PATH)
         self._backup_path = self.path.with_suffix(self.path.suffix + ".bak")
         self.templates: dict[str, Template] = {}
         self.active_template_id: str | None = None

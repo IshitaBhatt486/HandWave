@@ -72,6 +72,14 @@ def test_file_contains_only_supported_settings(tmp_path):
         "cursor_assist_overlay_enabled": True,
         "cursor_assist_overlay_size": 22,
         "cursor_assist_overlay_opacity": 0.72,
+        "start_camera_on_launch": True,
+        "double_clap_enabled": True,
+        "reduce_motion": False,
+        "pause_when_camera_in_use": True,
+        "pause_during_calls": True,
+        "pause_for_apps": [],
+        "fast_hand_model": False,
+        "debug_overlay": False,
     }
 
 
@@ -186,3 +194,16 @@ def test_gesture_rebinding_and_enabled_state_persist(tmp_path):
     assert restored.gesture_bindings["Fist"] == ActionDefinition(type="media", value="play_pause")
     assert restored.enabled_gestures["Fist"] is True
     assert restored.enabled_gestures["Thumbs Down"] is False
+
+
+def test_profiles_templates_and_gestures_move_out_of_the_source_tree(tmp_path):
+    from handwave.config.storage import migrate_legacy_file
+
+    legacy, target = tmp_path / "src" / "profiles.json", tmp_path / "user" / "profiles.json"
+    legacy.parent.mkdir()
+    legacy.write_text('{"profiles": []}', encoding="utf-8")
+    assert migrate_legacy_file(legacy, target) == target
+    assert target.read_text(encoding="utf-8") == '{"profiles": []}'
+    legacy.write_text("changed", encoding="utf-8")
+    migrate_legacy_file(legacy, target)  # never overwrites existing user data
+    assert target.read_text(encoding="utf-8") == '{"profiles": []}'

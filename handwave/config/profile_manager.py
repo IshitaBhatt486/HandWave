@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from handwave import platforms
+from handwave.config.storage import migrate_legacy_file
+
 import json
 import logging
-import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -31,17 +32,11 @@ def _migrate(raw: dict[str, Any]) -> dict[str, Any]:
 class ProfileManager:
     """Load and atomically persist the application-profile list across restarts."""
 
-    DEFAULT_PATH = (
-        Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-        / "HandWave"
-        / "config"
-        / "profiles.json"
-        if getattr(sys, "frozen", False)
-        else Path(__file__).with_name("profiles.json")
-    )
+    LEGACY_SOURCE_PATH = Path(__file__).with_name("profiles.json")
+    DEFAULT_PATH = platforms.config_dir() / "profiles.json"
 
     def __init__(self, path: str | Path | None = None) -> None:
-        self.path = Path(path) if path is not None else self.DEFAULT_PATH
+        self.path = Path(path) if path is not None else migrate_legacy_file(self.LEGACY_SOURCE_PATH, self.DEFAULT_PATH)
         self._backup_path = self.path.with_suffix(self.path.suffix + ".bak")
         self.profiles: dict[str, Profile] = {}
         self.active_profile_id: str | None = None
